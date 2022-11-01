@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} ${{ matrix.ruby }}
     strategy:
@@ -79,5 +79,12 @@ jobs:
         cmake ../confium/plugins/hash-botan
         cmake --build .
 
-    - name: Run the default task
-      run: bundle exec rake
+    - name: Bundle
+      run: bundle
+
+    - name: Test
+      shell: bash
+      run: |
+        export LD_LIBRARY_PATH=$PWD/confium/target/debug
+        export CONFIUM_LIBRARY_PATH=$PWD/confium/target/debug
+        bundle exec rspec
