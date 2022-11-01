@@ -88,3 +88,15 @@ jobs:
         export LD_LIBRARY_PATH=$PWD/confium/target/debug
         export CONFIUM_LIBRARY_PATH=$PWD/confium/target/debug
         bundle exec rspec
+
+  release:
+    name: Release gem
+    needs: [ build-and-test ]
+    runs-on: ubuntu-latest
+    if: contains(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: cadwallion/publish-rubygems-action@master
+        env:
+          RUBYGEMS_API_KEY: ${{secrets.CONFIUM_CI_RUBYGEMS_API_KEY}}
