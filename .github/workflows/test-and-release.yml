@@ -1,0 +1,102 @@
+name: test-and-release
+
+on:
+  push:
+    branches: [ main ]
+    tags:     [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.job }}-${{ github.head_ref || github.ref_name }}'
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} ${{ matrix.ruby }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: [ '2.7', '3.0', '3.1' ]
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+
+    - name: Install Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby }}
+        bundler-cache: true
+
+      # Install os-specific build dependencies and
+      # set up os-specific environment variables environment
+    - name: install os-specific build deps and environment (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get -y install libbotan-2-dev cmake make g++
+        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$PWD/hash-botan-build/libcfm-hash-botan.so" >> $GITHUB_ENV
+    - name: install os-specific build deps and environment (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install botan
+        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$PWD/hash-botan-build/libcfm-hash-botan.dylib" >> $GITHUB_ENV
+    - name: install os-specific build deps and environment (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -eux
+        pacman --noconfirm -S --needed pactoys
+        pacboy sync --noconfirm libbotan:p
+        echo "RUBY_DLL_PATH=$(cygpath -w $PWD/confium/target/debug)" >> $GITHUB_ENV
+        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$(cygpath -w $PWD/hash-botan-build/libcfm-hash-botan.dll)" >> $GITHUB_ENV
+        echo "CMAKE_GENERATOR=MSYS Makefiles" >> $GITHUB_ENV
+
+    - name: Checkout confium core
+      uses: actions/checkout@v3
+      with:
+        repository: confium/confium
+        path: confium
+        fetch-depth: 1
+
+    - name: Cargo build
+      uses: actions-rs/cargo@v1
+      with:
+        toolchain: nightly
+        command: build
+        args: --manifest-path confium/Cargo.toml
+
+    - name: Plugin build
+      run: |
+        mkdir hash-botan-build
+        cd hash-botan-build
+        cmake ../confium/plugins/hash-botan
+        cmake --build .
+
+    - name: Bundle
+      run: bundle
+
+    - name: Test
+      shell: bash
+      run: |
+        export LD_LIBRARY_PATH=$PWD/confium/target/debug
+        export CONFIUM_LIBRARY_PATH=$PWD/confium/target/debug
+        bundle exec rspec
+
+  release:
+    name: Release gem
+    needs: [ build-and-test ]
+    runs-on: ubuntu-latest
+    if: contains(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: cadwallion/publish-rubygems-action@master
+        env:
+          RUBYGEMS_API_KEY: ${{secrets.CONFIUM_CI_RUBYGEMS_API_KEY}}
