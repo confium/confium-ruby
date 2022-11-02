@@ -41,12 +41,12 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get -y install libbotan-2-dev cmake make g++
-        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$PWD/hash-botan-build/libcfm-hash-botan.so" >> $GITHUB_ENV
+        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$PWD/confium-plugin-botan-build/libcfm-hash-botan.so" >> $GITHUB_ENV
     - name: install os-specific build deps and environment (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install botan
-        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$PWD/hash-botan-build/libcfm-hash-botan.dylib" >> $GITHUB_ENV
+        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$PWD/confium-plugin-botan-build/libcfm-hash-botan.dylib" >> $GITHUB_ENV
     - name: install os-specific build deps and environment (Windows)
       if: runner.os == 'Windows'
       shell: bash
@@ -55,7 +55,7 @@ jobs:
         pacman --noconfirm -S --needed pactoys
         pacboy sync --noconfirm libbotan:p
         echo "RUBY_DLL_PATH=$(cygpath -w $PWD/confium/target/debug)" >> $GITHUB_ENV
-        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$(cygpath -w $PWD/hash-botan-build/libcfm-hash-botan.dll)" >> $GITHUB_ENV
+        echo "CFM_HASH_BOTAN_PLUGIN_PATH=$(cygpath -w $PWD/confium-plugin-botan-build/libcfm-hash-botan.dll)" >> $GITHUB_ENV
         echo "CMAKE_GENERATOR=MSYS Makefiles" >> $GITHUB_ENV
 
     - name: Checkout confium core
@@ -72,11 +72,18 @@ jobs:
         command: build
         args: --manifest-path confium/Cargo.toml
 
+    - name: Checkout Botan plugin
+      uses: actions/checkout@v3
+      with:
+        repository: confium/confium-plugin-botan
+        path: confium-plugin-botan
+        fetch-depth: 1
+
     - name: Plugin build
       run: |
-        mkdir hash-botan-build
-        cd hash-botan-build
-        cmake ../confium/plugins/hash-botan
+        mkdir confium-plugin-botan-build
+        cd confium-plugin-botan-build
+        cmake ../confium-plugin-botan
         cmake --build .
 
     - name: Bundle
