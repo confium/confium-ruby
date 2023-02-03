@@ -3,13 +3,6 @@
 require_relative "confium/version"
 
 module Confium
-  # class Error < StandardError; end
-
-  # def self.context
-  #   cfm = Confium::CFM.new
-  #   cfm.load_plugin('botan', ENV['CFM_HASH_BOTAN_PLUGIN_PATH'])
-  #   cfm
-  # end
 
   def self.call_ffi_rc(fn, *args)
     rc = Confium::Lib.method(fn).call(*args)
