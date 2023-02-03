@@ -11,7 +11,7 @@ require_relative "spec_helper"
 RSpec.describe Confium::Digest do
   let(:cfm) do
     cfm = Confium::CFM.new
-    # cfm.load_plugin('botan', ENV['CFM_HASH_BOTAN_PLUGIN_PATH'])
+    cfm.load_plugin('botan', 'cfm-hash-botan')
     cfm
   end
 

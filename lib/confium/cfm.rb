@@ -8,8 +8,6 @@ module Confium
       pptr = FFI::MemoryPointer.new(:pointer)
       Confium.call_ffi(:cfm_create, pptr)
       @ptr = FFI::AutoPointer.new(pptr.read_pointer, self.class.method(:destroy))
-
-      load_plugin('botan', ENV['CFM_HASH_BOTAN_PLUGIN_PATH'])
     end
 
     def self.destroy(ptr)
