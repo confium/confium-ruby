@@ -5,9 +5,9 @@ module Confium
     attr_reader :ptr
 
     def initialize
-      pptr = FFI::MemoryPointer.new(:pointer)
+      pptr = ::FFI::MemoryPointer.new(:pointer)
       Confium.call_ffi(:cfm_create, pptr)
-      @ptr = FFI::AutoPointer.new(pptr.read_pointer, self.class.method(:destroy))
+      @ptr = ::FFI::AutoPointer.new(pptr.read_pointer, self.class.method(:destroy))
     end
 
     def self.destroy(ptr)

@@ -25,7 +25,7 @@ module Confium
         class_eval do
           attach_function(func, ary.first, ary.last)
         end
-      rescue FFI::NotFoundError
+      rescue ::FFI::NotFoundError
         # that's okay
       end
     end
