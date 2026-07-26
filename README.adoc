@@ -1,8 +1,16 @@
 = Confium Ruby bindings
+:toc: macro
+:toclevels: 2
 
-== Purpose
+Ruby bindings for the Confium open-source framework for multi-stakeholder threshold cryptography.
 
-Ruby bindings for Confium.
+Confium supports three deployment modes:
+
+* **Mode 1 — Peer-to-peer threshold cryptography**: nodes do TC directly (MPC, distributed custody, BFT)
+* **Mode 2 — TC PKI replacement**: drop-in for existing PKI consumers (PKCS#11 server, OpenSSL 3.0 provider, JCE)
+* **Mode 3 — TC Certificate PKI**: institutional deployments with custom certificate formats (OIML CNML, BIPM, pharma, accreditation)
+
+This gem wraps the C ABI exposed by Confium's Rust workspace and exposes it through idiomatic Ruby.
 
 == Installation
 
@@ -20,20 +28,76 @@ If bundler is not being used to manage dependencies, install the gem by executin
 $ gem install confium
 ----
 
+== Prerequisites
+
+The gem links against `libconfium.{so,dylib,dll}` from the Rust workspace.
+
+Build it from the https://github.com/confium/confium[`confium` repository]:
+
+[source,sh]
+----
+$ git clone https://github.com/confium/confium.git
+$ cd confium/confium
+$ cargo build --workspace --release
+$ # The library appears at target/release/libconfium.{so,dylib,dll}
+----
+
+Ensure the library is on the system load path (`LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`, or install to a system location).
+
 == Usage
 
-TODO: Write usage instructions here
+=== Hash (digest computation)
+
+[source,ruby]
+----
+require 'confium'
+
+digest = Confium::Digest.new('sha2-256')
+digest.update('hello, ')
+digest.update('world')
+puts digest.final_hex  # => hex-encoded SHA-256 of "hello, world"
+----
+
+=== Loading plugins
+
+[source,ruby]
+----
+Confium::CFM.load_plugin('/path/to/libcfmp_botan.so')
+----
 
 == Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+After checking out the repo, run `bin/setup` to install dependencies.
+Then, run `rake spec` to run the tests. You can also run `bin/console`
+for an interactive prompt that will allow you to experiment.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+To install this gem onto your local machine, run `bundle exec rake install`.
+
+== Project organization
+
+The Confium project spans multiple repositories:
+
+* `confium/confium`:: Rust workspace, the main product (43 crates, 744+ tests)
+* `confium/confium-ruby`:: This gem (Ruby FFI bindings)
+* `confium/confium.github.io`:: Jekyll site for https://www.confium.org
+* `confium/confium-report`:: AsciiDoc technical report
+* `rnpgp/rnp-rs`:: Rust binding to RNP OpenPGP C library (consumed by Confium for PGP operations)
 
 == Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/confium. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/confium/blob/main/CODE_OF_CONDUCT.md).
+Bug reports and pull requests are welcome on GitHub at
+https://github.com/confium/confium-ruby. This project is intended to be
+a safe, welcoming space for collaboration, and contributors are expected
+to adhere to the
+https://github.com/confium/confium-ruby/blob/main/CODE_OF_CONDUCT.md[code of conduct].
+
+== License
+
+The gem is available as open source under the terms of the
+https://opensource.org/licenses/BSD-2-Clause[BSD-2-Clause License].
 
 == Code of Conduct
 
-Everyone interacting in the Confium project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/confium/blob/main/CODE_OF_CONDUCT.md).
+Everyone interacting in the Confium project's codebases, issue trackers,
+chat rooms, and mailing lists is expected to follow the
+https://github.com/confium/confium-ruby/blob/main/CODE_OF_CONDUCT.md[code of conduct].
