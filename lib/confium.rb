@@ -19,6 +19,7 @@ module Confium
   autoload :Lib,      "confium/lib"
   autoload :CFM,      "confium/cfm"
   autoload :Digest,   "confium/digest"
+  autoload :TC,        "confium/tc"
 
   # Invoke an FFI function that returns a uint32 status code, raising when
   # the call did not succeed (non-zero return).
