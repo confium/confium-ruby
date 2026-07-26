@@ -15,8 +15,8 @@ repos need attention.
 | `confium` | https://github.com/confium/confium | Rust workspace (main product) | ✅ Active (43 crates, 744+ tests, 69 TODO docs) |
 | `confium-ruby` | https://github.com/confium/confium-ruby | Ruby FFI bindings gem | ✅ Active (this repo) |
 | `confium.github.io` | https://github.com/confium/confium.github.io | Jekyll site for www.confium.org | ✅ Active (three-mode landing shipped) |
-| `confium-report` | https://github.com/confium/confium-report | Multi-spec technical repository (currently 2022 vintage; needs v2 spec docs) | ⚠️ Outdated |
-| `infrastructure` | https://github.com/confium/infrastructure | Terraform for AWS (CONFIDENTIAL) | 🔒 Operator-managed (Ribose ops only) |
+| `specs` | https://github.com/confium/specs | Multi-spec technical repository (deployed to www.confium.org/specs/) | ✅ Synced 2026-07-26 (renamed from `confium-report`) |
+| ~~`infrastructure`~~ | ~~https://github.com/confium/infrastructure~~ | ~~Terraform for AWS~~ | ❌ Deprecated, ignored. |
 
 ### Consumed dependencies
 
@@ -84,7 +84,7 @@ Triggered by 5 logical merges.
 - [ ] CNML case study page (summary of `TODO.roadmap/27-cnml-deployment.md`)
 - [ ] NIST MPTS page (summary of `TODO.roadmap/25-nist-threshold-call.md`)
 
-### confium-report (to be generalized into multi-spec repository)
+### specs (renamed from confium-report, deployed to Pages)
 
 This repository is being **generalized into a multi-spec repository** covering all aspects of how Confium works and the various systems Confium provides. Specs include:
 
@@ -113,15 +113,13 @@ Each spec includes:
 Existing 2022 `report.adoc` is preserved as historical context but no longer
 the canonical technical reference.
 
-### infrastructure (operator-managed)
+### infrastructure (deprecated)
 
-DO NOT TOUCH without Ribose operator approval. See repo's own `README.adoc`.
-
-Future operator-initiated work (when CNML deploys):
-- DNS for `learn.confium.org`, `docs.confium.org`, `log.confium.org`
-- Coordinator hosting (BIML-operated)
-- Transparency log infrastructure
-- S3 buckets for transparency log data
+❌ **Deprecated** — per Ribose direction (2026-07-26), the `infrastructure/`
+repository is no longer part of the Confium open-source workspace. Any
+future infrastructure needs (DNS, coordinator hosting, transparency log
+hosting, S3 buckets) will be handled via internal Ribose processes
+outside the open-source project. This repository is ignored.
 
 ## Anti-goals
 
