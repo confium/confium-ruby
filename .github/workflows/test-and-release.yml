@@ -25,10 +25,10 @@ jobs:
         os: [ windows-latest, macos-latest, ubuntu-latest ]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Install Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: nightly
         default: true
@@ -62,7 +62,7 @@ jobs:
         rustup target add --toolchain nightly-x86_64-pc-windows-msvc x86_64-pc-windows-gnu
 
     - name: Checkout confium core
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: confium/confium
         path: confium
@@ -78,7 +78,7 @@ jobs:
         cmake --build . --target install
 
     - name: Checkout Botan plugin
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: confium/confium-plugin-botan
         path: confium-plugin-botan
@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: cadwallion/publish-rubygems-action@master
         env:
