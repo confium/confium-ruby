@@ -63,6 +63,25 @@ impl MerkleTree {
         Ok(arr)
     }
 
+    /// Compute a consistency proof (RFC 6962 §2.1.2).
+    /// Proves that the first `old_size` entries hash to the same root
+    /// as a tree of exactly `old_size` entries.
+    /// Returns an Array of 32-byte binary Strings.
+    fn consistency_proof(&self, old_size: usize) -> Result<magnus::RArray, Error> {
+        let proof = self
+            .inner
+            .borrow()
+            .consistency_proof(old_size)
+            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get()
+            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let arr = ruby.ary_new_capa(proof.len());
+        for h in &proof {
+            arr.push(bytes_to_rstring(&ruby, h))?;
+        }
+        Ok(arr)
+    }
+
     fn root(&self) -> Value {
         let ruby = Ruby::get().expect("Ruby must be available");
         let bytes = self.inner.borrow().root();
@@ -209,6 +228,7 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     tree_class.define_method("inclusion_proof", method!(MerkleTree::inclusion_proof, 1))?;
     tree_class.define_method("entries", method!(MerkleTree::entries, 0))?;
     tree_class.define_method("to_a", method!(MerkleTree::entries, 0))?;
+    tree_class.define_method("consistency_proof", method!(MerkleTree::consistency_proof, 1))?;
 
     let proof_class = transparency.define_class("InclusionProof", ruby.class_object())?;
     proof_class.define_method("sequence", method!(InclusionProofWrap::sequence, 0))?;
