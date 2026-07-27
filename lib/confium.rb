@@ -33,4 +33,5 @@ module Confium
   autoload :UnresolvedSignerError,"confium/errors/unresolved_signer_error"
   autoload :PolicyViolationError, "confium/errors/policy_violation_error"
   autoload :SecureBytes,          "confium/secure_bytes"
+  autoload :Policy,               "confium/policy"
 end
