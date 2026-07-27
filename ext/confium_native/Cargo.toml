@@ -28,7 +28,7 @@ magnus = { version = "0.8", features = ["bytes"] }
 # version of the confium-rs repo so a `bundle exec rake compile` produces
 # an extension whose behavior matches the Rust library of the same version.
 confium-core = "0.2"
-confium-transparency = "0.3"
+confium-transparency = "0.3.1"
 confium-composite = "0.3.1"
 confium-attributes = "0.3.1"
 confium-pki = "0.3.1"
