@@ -180,9 +180,9 @@ dependencies = [
 
 [[package]]
 name = "confium-attributes"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65a8187d302fce0a798f13b36c218646a18f4fcb4fcd1cc000dc67fcedea8acb"
+checksum = "7edc7e251d9a65d428e223ff795986e9983eff5430cc1029ddacc4451f26299a"
 dependencies = [
  "serde",
  "serde_json",
