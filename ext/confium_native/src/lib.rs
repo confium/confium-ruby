@@ -6,6 +6,7 @@
 
 mod attributes;
 mod composite;
+mod deployment;
 mod pki;
 mod transparency;
 
@@ -39,5 +40,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     composite::init(ruby, confium)?;
     attributes::init(ruby, confium)?;
     pki::init(ruby, confium)?;
+    deployment::init(ruby, confium)?;
     Ok(())
 }
