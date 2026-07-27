@@ -1,4 +1,158 @@
 module Confium
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+  module Native
+    def self.version: () -> String
+    def self.loaded?: () -> bool
+  end
+
+  def self.core_version: () -> String
+end
+
+module Confium::Transparency
+  class MerkleTree
+    def initialize: () -> void
+    def append: (String artifact_hash_bytes) -> Integer
+    def length: () -> Integer
+    def size: () -> Integer
+    def empty?: () -> bool
+    def root: () -> String
+    def inclusion_proof: (Integer sequence) -> InclusionProof
+  end
+
+  class InclusionProof
+    def sequence: () -> Integer
+    def steps: () -> Hash[Integer, { sibling: String, side: String }]
+    def verify: (String root_bytes) -> bool
+  end
+end
+
+module Confium::Composite
+  def self.generate_ed25519_keypair: () -> { private_key: String, public_key: String }
+  def self.sign_ed25519: (String private_key_bytes, String message_bytes) -> { algorithm: String, public_key: String, signature: String }
+  def self.sign_p256: (String private_key_bytes, String message_bytes) -> { algorithm: String, public_key: String, signature: String }
+
+  class Signature
+    def self.new: (Array[{ algorithm: String, public_key: String, signature: String }] components) -> untyped
+    def component_count: () -> Integer
+    def algorithms: () -> Array[String]
+    def verify: (String message_bytes) -> VerificationResult
+  end
+
+  class VerificationResult
+    def all_verified?: () -> bool
+    def per_component: () -> Hash[Integer, untyped]
+  end
+end
+
+module Confium::Attributes
+  def self.parse: (String dsl_expression) -> Predicate
+
+  class Predicate
+    def satisfied_by?: (Array[Signer] signers) -> bool
+  end
+
+  class Signer
+    def initialize: () -> void
+    def add: (String key, String value) -> void
+    def has?: (String key) -> bool
+    def values: (String key) -> Array[String]
+  end
+end
+
+module Confium::PKI
+  class Certificate
+    def self.from_der: (String der_bytes) -> Certificate
+    def self.from_pem: (String pem_text) -> Certificate
+    def to_der: () -> String
+    def to_pem: () -> String
+    def fingerprint_sha256: () -> String
+    def serial_hex: () -> String
+    def not_before: () -> String
+    def not_after: () -> String
+    def valid_at?: (String iso8601_time) -> bool
+    def public_key_bytes: () -> String
+  end
+
+  class CSR
+    def self.from_der: (String der_bytes) -> CSR
+    def self.from_pem: (String pem_text) -> CSR
+    def to_der: () -> String
+    def to_pem: () -> String
+  end
+
+  module CMS
+    class SignedData
+      def self.from_json: (String json) -> SignedData
+      def to_json: () -> String
+      def signer_count: () -> Integer
+      def signing_time: () -> String?
+      def content_type: () -> String
+      def content: () -> Content?
+      def certificate_count: () -> Integer
+      def certificate_at: (Integer index) -> String
+    end
+
+    class Content
+      def bytes: () -> String
+      def length: () -> Integer
+      def size: () -> Integer
+    end
+  end
+
+  module XMLDSig
+    def self.canonicalize: (String xml) -> String
+    def self.canonicalize_exclusive: (String xml) -> String
+  end
+end
+
+module Confium::Identity
+  ACTOR_TYPES: Array[String]
+
+  def self.actor_types: () -> Array[String]
+
+  class Actor
+    def self.from_json: (String json) -> Actor
+    def to_json: () -> String
+    def actor_id: () -> String
+    def actor_type: () -> String
+    def quorum_id: () -> String?
+    def registered_at: () -> String
+    def expires_at: () -> String?
+    def certificate_count: () -> Integer
+  end
+end
+
+module Confium::Config
+  class Manifest
+    def self.from_toml: (String toml) -> Manifest
+    def deployment_name: () -> String
+    def operator: () -> String
+    def manifest_version: () -> Integer
+    def tier_count: () -> Integer
+    def tier_name_at: (Integer index) -> String
+    def quorum_count: () -> Integer
+    def validate: () -> Array[String]
+    def valid?: () -> bool
+  end
+end
+
+module Confium::TC
+  module FrostP256
+    def self.generate_keypair: () -> { private_key: String, public_key: String }
+    def self.split_secret: (String secret_bytes, Integer threshold, Integer party_count) -> Array[Share]
+    def self.recover_secret: (Array[{ x: Integer, y: String }] shares) -> String
+    def self.sign: (String private_key_bytes, String message_bytes) -> { der: String, fixed: String }
+
+    class Share
+      def x: () -> Integer
+      def y_bytes: () -> String
+    end
+  end
+
+  module ElGamalP256
+    def self.encapsulate: (String public_key_bytes) -> { ciphertext: { c1: String, c2: String }, shared_secret: String }
+    def self.partial_decrypt: (Integer party_index, String share_bytes, { c1: String, c2: String } ciphertext) -> { party_index: Integer, bytes: String }
+    def self.aggregate_partials: (Array[{ party_index: Integer, bytes: String }] partials, Integer threshold, { c1: String, c2: String } ciphertext) -> String
+  end
 end
