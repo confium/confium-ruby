@@ -52,14 +52,34 @@ impl CompositeSig {
             .inner
             .borrow()
             .verify(&msg, |algorithm, public_key, m, signature| {
-                // Built-in Ed25519 verifier is the only real one currently;
-                // unknown algorithms are reported as failed components.
-                confium_composite::ed25519_verifier(algorithm, public_key, m, signature)
+                // Built-in verifiers: Ed25519 + ECDSA-P256. Unknown
+                // algorithms are reported as failed components.
+                if algorithm == confium_composite::ED25519 {
+                    confium_composite::ed25519_verifier(algorithm, public_key, m, signature)
+                } else if algorithm == "ECDSA-P256" || algorithm == "ECDSA" {
+                    p256_verifier(public_key, m, signature)
+                } else {
+                    Err(format!("unsupported algorithm: {algorithm}"))
+                }
             })
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(VerificationResultWrap { inner: result }))
     }
+}
+
+/// Verify an ECDSA-P256 signature. `public_key` is the SEC1 uncompressed
+/// (65-byte) or compressed (33-byte) verifying key. `signature` is the
+/// DER-encoded ECDSA signature. SHA-256 is used as the digest.
+fn p256_verifier(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), String> {
+    use p256::ecdsa::{VerifyingKey, Signature};
+    use p256::elliptic_curve::sec1::FromEncodedPoint;
+    let vk = VerifyingKey::from_sec1_bytes(public_key)
+        .map_err(|e| format!("invalid P-256 public key: {e}"))?;
+    let sig = Signature::from_der(signature)
+        .map_err(|e| format!("invalid DER signature: {e}"))?;
+    use p256::ecdsa::signature::Verifier;
+    vk.verify(message, &sig).map_err(|e| format!("verify: {e}"))
 }
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -119,6 +139,36 @@ fn sign_ed25519(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash
 ///
 /// `Confium::Composite.generate_ed25519_keypair` returns `[private_key, public_key]`
 /// as binary strings (32 bytes each).
+/// Build a real ECDSA-P256 component signature. Useful when the caller
+/// holds a P-256 signing key and wants to participate in a composite
+/// signature alongside e.g. Ed25519 or ML-DSA-65.
+fn sign_p256(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash, Error> {
+    let pk_bytes = bytes_from_value(private_key)?;
+    let msg = bytes_from_value(message)?;
+    if pk_bytes.len() != 32 {
+        return Err(Error::new(
+            exception::arg_error(),
+            format!("P-256 private key must be 32 bytes, got {}", pk_bytes.len()),
+        ));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&pk_bytes);
+    use p256::ecdsa::{Signature, SigningKey, signature::Signer};
+    let signing = SigningKey::from_bytes(&arr.into())
+        .map_err(|e| Error::new(exception::arg_error(), format!("invalid P-256 private key: {e}")))?;
+    let sig: Signature = signing.try_sign(msg.as_slice()).map_err(|e| {
+        Error::new(exception::runtime_error(), format!("sign error: {e}"))
+    })?;
+    let verifying = signing.verifying_key();
+    let verifying_bytes: Vec<u8> = verifying.to_sec1_bytes().to_vec();
+    let sig_bytes: Vec<u8> = sig.to_der().to_bytes().to_vec();
+    let result = ruby.hash_new();
+    result.aset("algorithm", "ECDSA-P256")?;
+    result.aset("public_key", bytes_to_rstring(ruby, &verifying_bytes))?;
+    result.aset("signature", bytes_to_rstring(ruby, &sig_bytes))?;
+    Ok(result)
+}
+
 fn generate_ed25519_keypair(ruby: &Ruby) -> Result<RHash, Error> {
     let mut rng = OsRng;
     let signing = SigningKey::generate(&mut rng);
@@ -177,6 +227,10 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     composite.define_module_function(
         "sign_ed25519",
         function!(sign_ed25519, 2),
+    )?;
+    composite.define_module_function(
+        "sign_p256",
+        function!(sign_p256, 2),
     )?;
     composite.define_module_function(
         "generate_ed25519_keypair",
