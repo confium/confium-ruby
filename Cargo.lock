@@ -191,11 +191,12 @@ dependencies = [
 
 [[package]]
 name = "confium-composite"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa35bd1bc4fa1e4d1a61753695c857130e746babab5c5bd58c4c5a0d200457d4"
+checksum = "317ed25adf9a1aad00722a215c3397dea694fcdf90730542e82acdea559644aa"
 dependencies = [
  "ed25519-dalek",
+ "p256",
  "rand_core",
  "serde",
  "serde_json",

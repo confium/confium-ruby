@@ -1,10 +1,11 @@
 //! Shared utilities for the confium-ruby native extension.
 //!
 //! DRY consolidation: a single `bytes_from_value` + size cap + string
-//! conversion shared by every subsystem module (composite, pki, tc,
-//! transparency, deployment, attributes).
+//! conversion + typed-error helper shared by every subsystem module
+//! (composite, pki, tc, transparency, deployment, attributes).
 
-use magnus::{exception, Error, RString, TryConvert, Value};
+use magnus::prelude::*;
+use magnus::{exception, Error, RHash, RString, Ruby, TryConvert, Value};
 
 /// Maximum byte length for any input we accept from Ruby. Inputs larger
 /// than this are rejected before they reach an allocator-capable codepath
@@ -25,12 +26,7 @@ pub fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
         return Ok(bytes);
     }
     let arr: Vec<i64> = Vec::<i64>::try_convert(v)?;
-    if arr.len() > MAX_INPUT_SIZE {
-        return Err(Error::new(
-            exception::arg_error(),
-            format!("array input size {0} exceeds max {MAX_INPUT_SIZE}", arr.len()),
-        ));
-    }
+    enforce_size(arr.len())?;
     arr.into_iter()
         .map(|i| {
             if !(0..=255).contains(&i) {
@@ -60,8 +56,52 @@ pub fn enforce_size(len: usize) -> Result<(), Error> {
 
 /// Build a Ruby binary `String` from a byte slice. Avoids the UTF-8
 /// round-trip in `RString::buf_new` + `cat` for already-binary input.
-pub fn bytes_to_rstring(ruby: &magnus::Ruby, bytes: &[u8]) -> magnus::RString {
-    let s = magnus::RString::buf_new(0);
+pub fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> RString {
+    let s = RString::buf_new(0);
     s.cat(bytes);
     s
+}
+
+/// Construct a typed `Confium::*Error` instance with the given message
+/// and details Hash, ready to be raised.
+///
+/// `subclass` is the Ruby class name under `Confium::` (e.g. "ParseError").
+/// If the subclass is not yet loaded (autoload miss), falls back to
+/// `Confium::Error`. Callers should always use this helper rather than
+/// `Error::new(exception::runtime_error(), ...)` so the typed hierarchy
+/// stays meaningful.
+pub fn confium_error(message: impl Into<String>, subclass: &str, details: RHash) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), message.into()),
+    };
+    let class_name = format!("Confium::{subclass}");
+    let class = match ruby
+        .class_object()
+        .const_get::<_, magnus::RClass>(class_name.as_str())
+    {
+        Ok(c) => c,
+        Err(_) => match ruby
+            .class_object()
+            .const_get::<_, magnus::RClass>("Confium::Error")
+        {
+            Ok(c) => c,
+            Err(_) => {
+                return Error::new(exception::runtime_error(), message.into());
+            }
+        },
+    };
+    let msg: String = message.into();
+    let instance: magnus::Exception = match class.funcall("new", (msg.as_str(), details)) {
+        Ok(i) => i,
+        Err(_) => return Error::new(exception::runtime_error(), msg),
+    };
+    Error::from(instance)
+}
+
+/// Build an empty `RHash` for the `details:` argument to a Confium
+/// error. The Hash is owned by the Ruby GC; callers add keys via
+/// `aset` before passing to [`confium_error`].
+pub fn new_details(ruby: &Ruby) -> RHash {
+    ruby.hash_new()
 }

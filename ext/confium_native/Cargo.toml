@@ -29,7 +29,7 @@ magnus = { version = "0.8", features = ["bytes"] }
 # an extension whose behavior matches the Rust library of the same version.
 confium-core = "0.2"
 confium-transparency = "0.3"
-confium-composite = "0.3"
+confium-composite = "0.3.1"
 confium-attributes = "0.3"
 confium-pki = "0.3"
 confium-deployment = "0.3"
