@@ -32,6 +32,7 @@ confium-attributes = "0.3"
 confium-pki = "0.3"
 confium-deployment = "0.3"
 confium-tc-frost-p256 = "0.3"
+confium-tc-elgamal-p256 = "0.3"
 
 # P-256 scalar/point types used by the TC surface.
 p256 = { version = "0.13", features = ["ecdsa"] }

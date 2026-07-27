@@ -85,3 +85,30 @@ RSpec.describe Confium::TC::FrostP256 do
     end
   end
 end
+
+RSpec.describe Confium::TC::ElGamalP256 do
+  describe ".encapsulate + .partial_decrypt + .aggregate_partials" do
+    it "round-trips a 3-of-5 threshold decryption" do
+      kp = Confium::TC::FrostP256.generate_keypair
+      shares = Confium::TC::FrostP256.split_secret(kp["private_key"], 3, 5)
+
+      encap = described_class.encapsulate(kp["public_key"])
+      expect(encap["shared_secret"].bytesize).to eq(32)
+      expect(encap["ciphertext"]).to be_a(Hash)
+      expect(encap["ciphertext"]["c1"].bytesize).to eq(65)
+      expect(encap["ciphertext"]["c2"].bytesize).to eq(65)
+
+      partials = shares.first(3).map do |share|
+        described_class.partial_decrypt(share.x, share.y_bytes, encap["ciphertext"])
+      end
+      expect(partials.size).to eq(3)
+      partials.each do |p|
+        expect(p["party_index"]).to be_a(Integer)
+        expect(p["bytes"].bytesize).to eq(65)
+      end
+
+      recovered = described_class.aggregate_partials(partials, 3, encap["ciphertext"])
+      expect(recovered).to eq(encap["shared_secret"])
+    end
+  end
+end
