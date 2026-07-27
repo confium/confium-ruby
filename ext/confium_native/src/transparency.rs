@@ -50,6 +50,19 @@ impl MerkleTree {
         self.inner.borrow().is_empty()
     }
 
+    /// Return all inclusion proofs as an Array. Use #to_a or #entries
+    /// to iterate: `tree.to_a.map(&:sequence)` etc.
+    fn entries(&self) -> Result<magnus::RArray, Error> {
+        let len = self.inner.borrow().len();
+        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let arr = ruby.ary_new_capa(len);
+        for i in 0..(len as u64) {
+            let proof = self.inclusion_proof(i)?;
+            arr.push(proof)?;
+        }
+        Ok(arr)
+    }
+
     fn root(&self) -> Value {
         let ruby = Ruby::get().expect("Ruby must be available");
         let bytes = self.inner.borrow().root();
@@ -194,6 +207,8 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     tree_class.define_method("empty?", method!(MerkleTree::is_empty, 0))?;
     tree_class.define_method("root", method!(MerkleTree::root, 0))?;
     tree_class.define_method("inclusion_proof", method!(MerkleTree::inclusion_proof, 1))?;
+    tree_class.define_method("entries", method!(MerkleTree::entries, 0))?;
+    tree_class.define_method("to_a", method!(MerkleTree::entries, 0))?;
 
     let proof_class = transparency.define_class("InclusionProof", ruby.class_object())?;
     proof_class.define_method("sequence", method!(InclusionProofWrap::sequence, 0))?;

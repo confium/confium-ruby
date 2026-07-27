@@ -30,7 +30,7 @@ magnus = { version = "0.8", features = ["bytes"] }
 confium-core = "0.2"
 confium-transparency = "0.3"
 confium-composite = "0.3.1"
-confium-attributes = "0.3"
+confium-attributes = "0.3.1"
 confium-pki = "0.3.1"
 confium-deployment = "0.3"
 confium-tc-frost-p256 = "0.3"
