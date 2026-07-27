@@ -61,5 +61,16 @@ RSpec.describe Confium::Composite do
       expect(details[0]["verified"]).to be(false)
       expect(details[0]["error"]).to be_a(String)
     end
+
+    it "verifies a mixed Ed25519 + ECDSA-P256 composite" do
+      p256_kp = Confium::TC::FrostP256.generate_keypair
+      p256_component = described_class.sign_p256(p256_kp["private_key"], "mixed")
+      mixed_kp = described_class.generate_ed25519_keypair
+      ed_component = described_class.sign_ed25519(mixed_kp["private_key"], "mixed")
+      sig = described_class::Signature.new([ed_component, p256_component])
+      expect(sig.algorithms).to eq(["Ed25519", "ECDSA-P256"])
+      result = sig.verify("mixed")
+      expect(result.all_verified?).to be(true)
+    end
   end
 end
