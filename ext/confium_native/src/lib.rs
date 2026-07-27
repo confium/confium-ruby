@@ -24,9 +24,9 @@ fn native_loaded() -> bool {
 }
 
 fn core_version() -> &'static str {
-    // confium-core doesn't expose its version at runtime; we hand-mirror
-    // the workspace version the extension was built against.
-    "0.2.0"
+    // Set by build.rs at compile time from Cargo.lock. Always matches the
+    // confium-core crate version the extension was built against.
+    env!("CONFIUM_CORE_VERSION")
 }
 
 #[magnus::init]
