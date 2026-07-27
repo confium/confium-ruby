@@ -14,10 +14,11 @@
 use confium_composite::{CompositeSignature, ComponentSignature, VerificationResult};
 use ed25519_dalek::{Signer, SigningKey};
 use magnus::{
-    exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, IntoValue,
+    exception, function, method, prelude::*, scan_args,
+    typed_data::Obj, DataTypeFunctions, Error, IntoValue,
     Module, Object, RHash, Ruby, TryConvert, TypedData, Value,
 };
-use crate::util::{bytes_from_value, bytes_to_rstring};
+use crate::util::{bytes_from_value, bytes_to_rstring, confium_error, new_details};
 use rand_core::OsRng;
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -47,40 +48,77 @@ impl CompositeSig {
             .collect()
     }
 
-    fn verify(&self, message: Value) -> Result<Obj<VerificationResultWrap>, Error> {
+    /// Verify all components against `message`. Built-in verifiers cover
+    /// Ed25519 + ECDSA-P256. Caller-supplied verifiers (a Ruby Hash
+    /// `algorithm_string -> Proc(public_key, message, signature)`) plug
+    /// in for any other algorithm. Returns a typed VerificationResult.
+    fn verify(&self, args: &[Value]) -> Result<Obj<VerificationResultWrap>, Error> {
+        let scanned = scan_args::scan_args::<(Value,), (Option<Value>,), (), (), (), ()>(args)?;
+        let message = scanned.required.0;
+        let verifiers_value = scanned.optional.0;
         let msg = bytes_from_value(message)?;
-        let result = self
+        let caller_verifiers = match verifiers_value {
+            Some(v) => parse_caller_verifiers(v)?,
+            None => std::collections::HashMap::new(),
+        };        let result = self
             .inner
             .borrow()
             .verify(&msg, |algorithm, public_key, m, signature| {
-                // Built-in verifiers: Ed25519 + ECDSA-P256. Unknown
-                // algorithms are reported as failed components.
                 if algorithm == confium_composite::ED25519 {
                     confium_composite::ed25519_verifier(algorithm, public_key, m, signature)
-                } else if algorithm == "ECDSA-P256" || algorithm == "ECDSA" {
-                    p256_verifier(public_key, m, signature)
+                } else if algorithm == confium_composite::ECDSA_P256 || algorithm == "ECDSA" {
+                    confium_composite::p256_verifier(algorithm, public_key, m, signature)
+                } else if let Some(callback) = caller_verifiers.get(algorithm) {
+                    invoke_caller_verifier(callback, public_key, m, signature)
                 } else {
                     Err(format!("unsupported algorithm: {algorithm}"))
                 }
             })
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| {
+                let ruby = Ruby::get().expect("Ruby must be available");
+                let details = new_details(&ruby);
+                confium_error(e.to_string(), "VerificationError", details)
+            })?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(VerificationResultWrap { inner: result }))
     }
 }
 
-/// Verify an ECDSA-P256 signature. `public_key` is the SEC1 uncompressed
-/// (65-byte) or compressed (33-byte) verifying key. `signature` is the
-/// DER-encoded ECDSA signature. SHA-256 is used as the digest.
-fn p256_verifier(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), String> {
-    use p256::ecdsa::{VerifyingKey, Signature};
-    use p256::elliptic_curve::sec1::FromEncodedPoint;
-    let vk = VerifyingKey::from_sec1_bytes(public_key)
-        .map_err(|e| format!("invalid P-256 public key: {e}"))?;
-    let sig = Signature::from_der(signature)
-        .map_err(|e| format!("invalid DER signature: {e}"))?;
-    use p256::ecdsa::signature::Verifier;
-    vk.verify(message, &sig).map_err(|e| format!("verify: {e}"))
+/// Caller-supplied verifier callbacks keyed by algorithm string.
+/// Each value is a Ruby Proc taking (public_key_bytes, message_bytes,
+/// signature_bytes) and returning true/false.
+type CallerVerifiers = std::collections::HashMap<String, magnus::Value>;
+
+fn parse_caller_verifiers(v: Value) -> Result<CallerVerifiers, Error> {
+    let hash: RHash = RHash::try_convert(v)?;
+    let mut out = CallerVerifiers::new();
+    hash.foreach(|k: Value, val: Value| {
+        let key: String = String::try_convert(k)?;
+        out.insert(key, val);
+        Ok(magnus::r_hash::ForEach::Continue)
+    })?;
+    Ok(out)
+}
+
+fn invoke_caller_verifier(
+    callback: &magnus::Value,
+    public_key: &[u8],
+    message: &[u8],
+    signature: &[u8],
+) -> Result<(), String> {
+    let ruby = Ruby::get().map_err(|e| e.to_string())?;
+    let pk = ruby.str_new(std::str::from_utf8(public_key).unwrap_or(""));
+    let _ = pk;
+    // Use Vec<u8> arguments — magnus converts them to Ruby Array<Integer>.
+    let result: magnus::Value = callback
+        .funcall("call", (public_key.to_vec(), message.to_vec(), signature.to_vec()))
+        .map_err(|e| format!("caller verifier raised: {e}"))?;
+    let ok: bool = bool::try_convert(result).map_err(|e| format!("caller verifier returned non-bool: {e}"))?;
+    if ok {
+        Ok(())
+    } else {
+        Err("caller verifier returned false".into())
+    }
 }
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -216,7 +254,7 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     sig_class.define_singleton_method("new", function!(CompositeSig::new, 1))?;
     sig_class.define_method("component_count", method!(CompositeSig::component_count, 0))?;
     sig_class.define_method("algorithms", method!(CompositeSig::algorithms, 0))?;
-    sig_class.define_method("verify", method!(CompositeSig::verify, 1))?;
+    sig_class.define_method("verify", method!(CompositeSig::verify, -1))?;
 
     let result_class = composite.define_class("VerificationResult", ruby.class_object())?;
     result_class.define_method("all_verified?", method!(VerificationResultWrap::all_verified, 0))?;
