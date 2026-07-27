@@ -13,5 +13,6 @@ target/
 *.dll
 *.dylib
 .rspec_status
+# All test support directories (test certs, keys, CSRs generated on the fly)
 spec/support/
-/spec/support/
+spec/**/support/
