@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 use confium_pki::{
     cert::{Certificate as RustCert, CertificateSigningRequest as RustCsr},
     cms::SignedData as RustSignedData,
+    xmldsig::{canonicalize, canonicalize_exclusive},
 };
 use magnus::{
     exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, Module,
@@ -230,6 +231,16 @@ fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> RString {
     s
 }
 
+// ===== XMLDSig canonicalization (RFC 3076 + Exclusive C14N) =====
+
+fn xmldsig_canonicalize(xml: String) -> Result<String, Error> {
+    canonicalize(&xml).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+}
+
+fn xmldsig_canonicalize_exclusive(xml: String) -> Result<String, Error> {
+    canonicalize_exclusive(&xml).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+}
+
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     let pki = parent.define_module("PKI")?;
 
@@ -269,6 +280,11 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     content_class.define_method("bytes", method!(CertWrapper::bytes, 0))?;
     content_class.define_method("length", method!(CertWrapper::length, 0))?;
     content_class.define_method("size", method!(CertWrapper::length, 0))?;
+
+    // XMLDSig submodule — Canonical XML (RFC 3076) and Exclusive C14N.
+    let xmldsig = pki.define_module("XMLDSig")?;
+    xmldsig.define_module_function("canonicalize", function!(xmldsig_canonicalize, 1))?;
+    xmldsig.define_module_function("canonicalize_exclusive", function!(xmldsig_canonicalize_exclusive, 1))?;
 
     // Touch RHash to silence dead-code warning from import; the type is
     // used implicitly via Ruby Hash conversion paths.

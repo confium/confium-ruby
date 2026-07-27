@@ -195,3 +195,34 @@ RSpec.describe Confium::PKI::CMS::SignedData do
     end
   end
 end
+
+RSpec.describe Confium::PKI::XMLDSig do
+  describe ".canonicalize" do
+    it "strips the XML declaration" do
+      xml = %(<?xml version="1.0"?>\n<root>\n  <child>text</child>\n</root>)
+      result = described_class.canonicalize(xml)
+      expect(result).to include("<root>")
+      expect(result).not_to include("<?xml")
+    end
+
+    it "preserves element content" do
+      xml = %(<root><child attr="val">hello</child></root>)
+      result = described_class.canonicalize(xml)
+      expect(result).to include("hello")
+      expect(result).to include(%(attr="val"))
+    end
+
+    it "raises on malformed XML" do
+      expect {
+        described_class.canonicalize("<not really xml")
+      }.to raise_error(RuntimeError)
+    end
+  end
+
+  describe ".canonicalize_exclusive" do
+    it "round-trips the same as canonicalize for simple inputs" do
+      xml = "<root><child>x</child></root>"
+      expect(described_class.canonicalize_exclusive(xml)).to eq(described_class.canonicalize(xml))
+    end
+  end
+end
