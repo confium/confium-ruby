@@ -1,0 +1,55 @@
+= PQ Signature Verification — Integration Guide
+
+Confium supports composite signatures for post-quantum (PQ) migration.
+A composite signature combines a classical algorithm (Ed25519,
+ECDSA-P256) with a PQ algorithm (ML-DSA-65, SLH-DSA) so that
+breaking either alone doesn't break the composite.
+
+== Built-in verifiers
+
+Confium ships built-in verifiers for:
+
+* **Ed25519** (`Ed25519`)
+* **ECDSA-P256** (`ECDSA-P256`)
+
+== Caller-supplied verifiers (PQ algorithms)
+
+For PQ algorithms that don't yet have a pure-Rust verifier crate in
+the Confium workspace, use the caller-supplied verifier callback:
+
+[source,ruby]
+----
+sig = Confium::Composite::Signature.new(components)
+result = sig.verify(message, {
+  "ML-DSA-65" => ->(pk_bytes, msg_bytes, sig_bytes) {
+    # Call your ML-DSA verifier here (e.g. via FFI to a C library,
+    # or a WebAssembly module, or a remote verification service).
+    my_ml_dsa_verifier.verify(pk_bytes, msg_bytes, sig_bytes)
+  },
+})
+puts result.all_verified?
+----
+
+== When will native ML-DSA support ship?
+
+Native ML-DSA-65 verification will ship when a suitable pure-Rust
+crate is available on crates.io. Candidates:
+
+* `ml-dsa` (RustCrypto) — under development
+* `pqcrypto` — wraps the NIST reference C implementation
+
+Until then, the callback surface is the supported path.
+
+== WASM equivalent
+
+The `@confium/confium-wasm` package supports the same callback pattern:
+
+[source,javascript]
+----
+import init, { CompositeSignature } from "@confium/confium-wasm";
+await init();
+const sig = CompositeSignature.from_json(jsonString);
+const result = sig.verify(messageBytes, {
+  "ML-DSA-65": (pk, msg, sig) => myVerifier(pk, msg, sig),
+});
+----
