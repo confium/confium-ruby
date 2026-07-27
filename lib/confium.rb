@@ -32,4 +32,5 @@ module Confium
   autoload :IndexError,           "confium/errors/index_error"
   autoload :UnresolvedSignerError,"confium/errors/unresolved_signer_error"
   autoload :PolicyViolationError, "confium/errors/policy_violation_error"
+  autoload :SecureBytes,          "confium/secure_bytes"
 end

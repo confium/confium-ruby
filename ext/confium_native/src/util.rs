@@ -105,3 +105,70 @@ pub fn confium_error(message: impl Into<String>, subclass: &str, details: RHash)
 pub fn new_details(ruby: &Ruby) -> RHash {
     ruby.hash_new()
 }
+
+// ===== Typed error helpers (TODO 013) =====
+// Each function builds a details Hash with the right shape for its
+// error class, then delegates to confium_error(). Call sites pass
+// only the domain-specific fields; :operation and :component are
+// filled automatically.
+
+pub fn parse_error(msg: impl Into<String>, operation: &str, format: Option<&str>, offset: Option<usize>) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), msg.into()),
+    };
+    let d = new_details(&ruby);
+    let _ = d.aset("operation", operation);
+    let _ = d.aset("component", "Confium");
+    if let Some(f) = format { let _ = d.aset("format", f); }
+    if let Some(o) = offset { let _ = d.aset("offset", o); }
+    confium_error(msg, "ParseError", d)
+}
+
+pub fn validation_error(msg: impl Into<String>, operation: &str, param: &str, expected: &str, actual: &str) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), msg.into()),
+    };
+    let d = new_details(&ruby);
+    let _ = d.aset("operation", operation);
+    let _ = d.aset("param", param);
+    let _ = d.aset("expected", expected);
+    let _ = d.aset("actual", actual);
+    confium_error(msg, "ValidationError", d)
+}
+
+pub fn verification_error(msg: impl Into<String>, operation: &str, signer_index: Option<usize>, algorithm: Option<&str>) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), msg.into()),
+    };
+    let d = new_details(&ruby);
+    let _ = d.aset("operation", operation);
+    if let Some(si) = signer_index { let _ = d.aset("signer_index", si); }
+    if let Some(alg) = algorithm { let _ = d.aset("algorithm", alg); }
+    confium_error(msg, "VerificationError", d)
+}
+
+pub fn crypto_error(msg: impl Into<String>, operation: &str, primitive: &str) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), msg.into()),
+    };
+    let d = new_details(&ruby);
+    let _ = d.aset("operation", operation);
+    let _ = d.aset("primitive", primitive);
+    confium_error(msg, "CryptoError", d)
+}
+
+pub fn threshold_error(msg: impl Into<String>, operation: &str, have: usize, need: usize) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), msg.into()),
+    };
+    let d = new_details(&ruby);
+    let _ = d.aset("operation", operation);
+    let _ = d.aset("have_count", have);
+    let _ = d.aset("need_count", need);
+    confium_error(msg, "ThresholdError", d)
+}
