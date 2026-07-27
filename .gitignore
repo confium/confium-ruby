@@ -13,3 +13,5 @@ target/
 *.dll
 *.dylib
 .rspec_status
+spec/support/
+/spec/support/

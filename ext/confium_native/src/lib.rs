@@ -6,6 +6,7 @@
 
 mod attributes;
 mod composite;
+mod pki;
 mod transparency;
 
 use magnus::{function, Error, Module, Ruby};
@@ -37,5 +38,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     transparency::init(ruby, confium)?;
     composite::init(ruby, confium)?;
     attributes::init(ruby, confium)?;
+    pki::init(ruby, confium)?;
     Ok(())
 }
