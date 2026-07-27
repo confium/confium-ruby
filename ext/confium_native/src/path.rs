@@ -48,12 +48,14 @@ impl PathResult {
 ///
 /// All cert arguments are Confium::PKI::Certificate instances.
 /// Returns a Confium::PKI::PathValidationResult.
-fn validate(
-    leaf_value: Value,
-    intermediates_value: Value,
-    root_value: Value,
-    now_iso8601: Option<String>,
-) -> Result<magnus::typed_data::Obj<PathResult>, Error> {
+fn validate(args: &[Value]) -> Result<magnus::typed_data::Obj<PathResult>, Error> {
+    use magnus::scan_args;
+    let scanned = scan_args::scan_args::<(Value, Value, Value), (Option<String>,), (), (), (), ()>(args)?;
+    let leaf_value = scanned.required.0;
+    let intermediates_value = scanned.required.1;
+    let root_value = scanned.required.2;
+    let now_iso8601 = scanned.optional.0;
+
     let leaf = extract_cert(leaf_value, "leaf")?;
     let root = extract_cert(root_value, "root")?;
 
@@ -105,7 +107,7 @@ fn extract_cert(value: Value, label: &str) -> Result<RustCert, Error> {
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     let pki = parent.define_module("PKI")?;
     let validator = pki.define_module("PathValidator")?;
-    validator.define_module_function("validate", function!(validate, 4))?;
+    validator.define_module_function("validate", function!(validate, -1))?;
 
     let result_class = pki.define_class("PathValidationResult", ruby.class_object())?;
     result_class.define_method("valid?", method!(PathResult::valid, 0))?;
