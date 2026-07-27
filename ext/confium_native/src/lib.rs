@@ -4,9 +4,11 @@
 //! `rb_sys`, and exposes a `Confium::Native` submodule whose functions
 //! are the Rust-backed implementation of the gem's API.
 
+mod audit;
 mod attributes;
 mod composite;
 mod deployment;
+mod path;
 mod pki;
 mod tc;
 mod transparency;
@@ -42,7 +44,9 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     composite::init(ruby, confium)?;
     attributes::init(ruby, confium)?;
     pki::init(ruby, confium)?;
+    path::init(ruby, confium)?;
     deployment::init(ruby, confium)?;
     tc::init(ruby, confium)?;
+    audit::init(ruby, confium)?;
     Ok(())
 }
