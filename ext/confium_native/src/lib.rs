@@ -10,6 +10,7 @@ mod deployment;
 mod pki;
 mod tc;
 mod transparency;
+mod util;
 
 use magnus::{function, Error, Module, Ruby};
 

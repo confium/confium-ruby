@@ -17,6 +17,7 @@ use magnus::{
     exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, IntoValue,
     Module, Object, RHash, Ruby, TryConvert, TypedData, Value,
 };
+use crate::util::{bytes_from_value, bytes_to_rstring};
 use rand_core::OsRng;
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -194,32 +195,6 @@ fn parse_components(value: Value) -> Result<Vec<ComponentSignature>, Error> {
         });
     }
     Ok(out)
-}
-
-fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
-    use magnus::RString;
-    if let Ok(s) = RString::try_convert(v) {
-        return Ok(unsafe { s.as_slice() }.to_vec());
-    }
-    let arr: Vec<i64> = Vec::<i64>::try_convert(v)?;
-    arr.into_iter()
-        .map(|i| {
-            if !(0..=255).contains(&i) {
-                Err(Error::new(
-                    exception::arg_error(),
-                    format!("byte out of range 0..255: {i}"),
-                ))
-            } else {
-                Ok(i as u8)
-            }
-        })
-        .collect()
-}
-
-fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> magnus::RString {
-    let s = magnus::RString::buf_new(0);
-    s.cat(bytes);
-    s
 }
 
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {

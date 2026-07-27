@@ -11,6 +11,7 @@ use confium_deployment::{
     manifest::{parse_manifest, Manifest as RustManifest},
     validate::validate_manifest,
 };
+use crate::util::enforce_size;
 use magnus::{exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, Module, Object, Ruby, TypedData};
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -21,6 +22,7 @@ pub struct Actor {
 
 impl Actor {
     fn from_json(json: String) -> Result<Obj<Self>, Error> {
+        enforce_size(json.len())?;
         let actor: ActorIdentity = serde_json::from_str(&json)
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
@@ -89,6 +91,7 @@ pub struct Manifest {
 
 impl Manifest {
     fn from_toml(toml_str: String) -> Result<Obj<Self>, Error> {
+        enforce_size(toml_str.len())?;
         let manifest = parse_manifest(&toml_str)
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;

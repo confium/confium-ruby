@@ -10,6 +10,7 @@
 //! *building* + signing lands in a follow-up once the Rust builder API
 //! stabilizes (currently `confium_pki::cert::builder` is private).
 
+use crate::util::{bytes_from_value, bytes_to_rstring, enforce_size};
 use chrono::{DateTime, Utc};
 use confium_pki::{
     cert::{Certificate as RustCert, CertificateSigningRequest as RustCsr},
@@ -37,6 +38,7 @@ impl Certificate {
     }
 
     fn from_pem(pem: String) -> Result<Obj<Self>, Error> {
+        enforce_size(pem.len())?;
         let cert = RustCert::from_pem(&pem)
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
@@ -104,6 +106,7 @@ impl Csr {
     }
 
     fn from_pem(pem: String) -> Result<Obj<Self>, Error> {
+        enforce_size(pem.len())?;
         let csr = RustCsr::from_pem(&pem)
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
@@ -128,6 +131,7 @@ pub struct SignedData {
 
 impl SignedData {
     fn from_json(json: String) -> Result<Obj<Self>, Error> {
+        enforce_size(json.len())?;
         let sd: RustSignedData = serde_json::from_str(&json)
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
@@ -289,39 +293,15 @@ impl CertWrapper {
     }
 }
 
-fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
-    use magnus::RString;
-    if let Ok(s) = RString::try_convert(v) {
-        return Ok(unsafe { s.as_slice() }.to_vec());
-    }
-    let arr: Vec<i64> = Vec::<i64>::try_convert(v)?;
-    arr.into_iter()
-        .map(|i| {
-            if !(0..=255).contains(&i) {
-                Err(Error::new(
-                    exception::arg_error(),
-                    format!("byte out of range 0..255: {i}"),
-                ))
-            } else {
-                Ok(i as u8)
-            }
-        })
-        .collect()
-}
-
-fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> RString {
-    let s = RString::buf_new(0);
-    s.cat(bytes);
-    s
-}
-
 // ===== XMLDSig canonicalization (RFC 3076 + Exclusive C14N) =====
 
 fn xmldsig_canonicalize(xml: String) -> Result<String, Error> {
+    enforce_size(xml.len())?;
     canonicalize(&xml).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
 }
 
 fn xmldsig_canonicalize_exclusive(xml: String) -> Result<String, Error> {
+    enforce_size(xml.len())?;
     canonicalize_exclusive(&xml).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
 }
 
