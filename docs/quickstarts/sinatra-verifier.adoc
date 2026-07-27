@@ -1,0 +1,82 @@
+= Sinatra verifier quickstart
+:toc: macro
+
+This guide walks through adding Confium to a Sinatra app to verify
+X.509 certificates and validate chains.
+
+== Prerequisites
+
+* Ruby >= 3.1
+* Rust stable (`rustup default stable`)
+* A CA certificate in PEM format
+
+== Setup
+
+[source,sh]
+----
+bundle add confium sinatra puma
+----
+
+== The app
+
+[source,ruby]
+----
+# app.rb
+require "sinatra/base"
+require "confium"
+
+class VerifyApp < Sinatra::Base
+  before { content_type :json }
+
+  post "/verify" do
+    cert = Confium::PKI::Certificate.from_pem(request.body.read)
+    root = Confium::PKI::Certificate.from_pem(File.read(ENV.fetch("CA_CERT_PATH")))
+
+    result = Confium::PKI::PathValidator.validate(
+      leaf: cert,
+      intermediates: nil,
+      root: root,
+    )
+
+    {
+      valid:      result.valid?,
+      subject_cn: cert.fingerprint_sha256[0, 16],
+      not_after:  cert.not_after,
+      errors:     result.check_count,
+    }.to_json
+  rescue Confium::ParseError => e
+    halt 400, { error: "parse_failed", details: e.details }.to_json
+  rescue Confium::VerificationError => e
+    halt 400, { error: "verification_failed", details: e.details }.to_json
+  end
+end
+----
+
+== Run
+
+[source,sh]
+----
+CA_CERT_PATH=./ca.pem bundle exec ruby -S rackup -o 0.0.0.0 -p 4567
+----
+
+== Test
+
+[source,sh]
+----
+curl -X POST http://localhost:4567/verify --data-binary @client.pem
+----
+
+Expected response:
+
+[source,json]
+----
+{"valid":true,"subject_cn":"a1b2c3d4e5f67890","not_after":"2027-07-27T...","errors":0}
+----
+
+== Next steps
+
+* Add threshold-composite signature verification via
+  `Confium::Composite`.
+* Anchor verified certs in a transparency log via
+  `Confium::Transparency::MerkleTree`.
+* Set up audit logging via `Confium::Audit.sink = ...`.
