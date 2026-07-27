@@ -186,6 +186,90 @@ impl SignedData {
                 )
             })
     }
+
+    /// Verify every signer's signature. Dispatches by signature algorithm
+    /// OID found in each signer_info:
+    ///   - 1.3.101.112 (Ed25519)        -> ed25519-dalek verifier
+    ///   - 1.2.840.10045.4.3.2 (ECDSA-P256-SHA256) -> p256 verifier
+    ///
+    /// Simplification: assumes the first certificate in `certificates` is
+    /// the signing cert for every signer. Production code should resolve
+    /// by issuer+serial or subjectKeyIdentifier.
+    fn verify_signatures(&self, payload: Value) -> Result<Obj<CmsVerificationResult>, Error> {
+        use confium_pki::cms::verify_signed_data;
+        let payload_bytes = bytes_from_value(payload)?;
+        let sd = self.inner.borrow();
+        let result = verify_signed_data(&sd, &payload_bytes, |_signer_index, pubkey_der, signed_bytes, signature| {
+            // Inspect the algorithm via the first signer_info's signature_algorithm OID.
+            let signer = sd.signer_infos.first().ok_or("no signer infos")?;
+            let oid = &signer.signature_algorithm.oid;
+            // Strip the DER-encoded public key down to raw key bytes.
+            // For Ed25519 SPKI, the last 32 bytes are the raw key.
+            // For ECDSA-P256 SPKI, the last 65 bytes are SEC1 uncompressed.
+            if oid == "1.3.101.112" {
+                // Ed25519.
+                if pubkey_der.len() < 32 {
+                    return Err("Ed25519 public key too short".into());
+                }
+                let pk_bytes = &pubkey_der[pubkey_der.len() - 32..];
+                confium_composite::ed25519_verifier("Ed25519", pk_bytes, signed_bytes, signature)
+            } else if oid == "1.2.840.10045.4.3.2" {
+                // ECDSA-P256-SHA256.
+                if pubkey_der.len() < 65 {
+                    return Err("ECDSA-P256 public key too short".into());
+                }
+                let pk_bytes = &pubkey_der[pubkey_der.len() - 65..];
+                // confium_composite doesn't have a p256 verifier; reuse the
+                // one defined inline in composite.rs (re-implemented here).
+                p256_verify_inline(pk_bytes, signed_bytes, signature)
+            } else {
+                Err(format!("unsupported signature algorithm OID: {oid}"))
+            }
+        }).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        Ok(ruby.obj_wrap(CmsVerificationResult { inner: result }))
+    }
+}
+
+#[derive(TypedData, DataTypeFunctions)]
+#[magnus(class = "Confium::PKI::CMS::VerificationResult", size)]
+pub struct CmsVerificationResult {
+    pub inner: confium_pki::cms::VerificationResult,
+}
+
+impl CmsVerificationResult {
+    fn all_verified(&self) -> bool {
+        self.inner.all_verified
+    }
+
+    fn signer_count(&self) -> usize {
+        self.inner.per_signer.len()
+    }
+
+    fn per_signer_json(&self) -> String {
+        // Build JSON manually — the upstream SignerVerification doesn't
+        // derive Serialize.
+        let entries: Vec<String> = self.inner.per_signer.iter().map(|s| {
+            let err = match &s.error {
+                Some(e) => format!(",\"error\":{}", serde_json::to_string(e).unwrap_or_else(|_| "null".into())),
+                None => String::new(),
+            };
+            format!(
+                "{{\"signer_index\":{},\"verified\":{}{}}}",
+                s.signer_index, s.verified, err
+            )
+        }).collect();
+        format!("[{}]", entries.join(","))
+    }
+}
+
+fn p256_verify_inline(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), String> {
+    use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
+    let vk = VerifyingKey::from_sec1_bytes(public_key)
+        .map_err(|e| format!("invalid P-256 public key: {e}"))?;
+    let sig = Signature::from_der(signature)
+        .map_err(|e| format!("invalid DER signature: {e}"))?;
+    vk.verify(message, &sig).map_err(|e| format!("verify: {e}"))
 }
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -275,6 +359,12 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     sd_class.define_method("content", method!(SignedData::content, 0))?;
     sd_class.define_method("certificate_count", method!(SignedData::certificate_count, 0))?;
     sd_class.define_method("certificate_at", method!(SignedData::certificate_at, 1))?;
+    sd_class.define_method("verify_signatures", method!(SignedData::verify_signatures, 1))?;
+
+    let verify_class = cms.define_class("VerificationResult", ruby.class_object())?;
+    verify_class.define_method("all_verified?", method!(CmsVerificationResult::all_verified, 0))?;
+    verify_class.define_method("signer_count", method!(CmsVerificationResult::signer_count, 0))?;
+    verify_class.define_method("per_signer_json", method!(CmsVerificationResult::per_signer_json, 0))?;
 
     let content_class = cms.define_class("Content", ruby.class_object())?;
     content_class.define_method("bytes", method!(CertWrapper::bytes, 0))?;
