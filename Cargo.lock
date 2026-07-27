@@ -236,9 +236,9 @@ dependencies = [
 
 [[package]]
 name = "confium-pki"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d591d0b6b643edf35c656e25a6524aeb50201889994a9a851fb8605a577b4e8"
+checksum = "b68dff75f1a02a0acf9145740a8e837b9c8f25cf4c71bad08d0c2b2c9bf2ac61"
 dependencies = [
  "chrono",
  "data-encoding",
