@@ -214,8 +214,8 @@ RSpec.describe Confium::PKI::XMLDSig do
 
     it "raises on malformed XML" do
       expect {
-        described_class.canonicalize("<not really xml")
-      }.to raise_error(RuntimeError)
+        described_class.canonicalize("&&&unterminated entity")
+      }.to raise_error(RuntimeError, /malformed XML/)
     end
   end
 
