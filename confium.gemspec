@@ -5,31 +5,51 @@ require_relative "lib/confium/version"
 Gem::Specification.new do |spec|
   spec.name = "confium"
   spec.version = Confium::VERSION
+  spec.platform = Gem::Platform::RUBY
+
   spec.authors = ["Ribose Open"]
   spec.email = ["open.source@ribose.com"]
 
-  spec.summary = "FFI bindings for Confium."
-  # spec.description = "TODO: Write a longer description or delete this line."
+  spec.summary = "Ruby bindings for the Confium multi-stakeholder threshold cryptography framework."
+  spec.description = "Confium provides threshold cryptography for Ruby: FROST / CMP20 / GG18 " \
+                     "signing sessions, X.509 certificate issuance (CNML-ready), composite " \
+                     "PQ-migration signatures, and transparency-log anchoring. Powered by a " \
+                     "Rust native extension (magnus + rb_sys) — no separate C ABI to install."
   spec.homepage = "https://www.confium.org"
-  spec.required_ruby_version = ">= 2.7.0"
+  spec.license = "BSD-2-Clause"
 
-  # spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
+  spec.metadata = {
+    "bug_tracker_uri" => "https://github.com/confium/confium-ruby/issues",
+    "changelog_uri" => "https://github.com/confium/confium-ruby/blob/main/CHANGELOG.md",
+    "homepage_uri" => spec.homepage,
+    "source_code_uri" => "https://github.com/confium/confium-ruby",
+    "rubygems_mfa_required" => "true",
+  }
 
-  spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/confium/confium-ruby"
-  spec.metadata["changelog_uri"] = "https://github.com/confium/confium-ruby"
+  # Rust extension — compiled at gem install via rb_sys.
+  spec.extensions = ["ext/confium_native/extconf.rb"]
 
-  # Specify which files should be added to the gem when it is released.
-  # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
-  spec.files = Dir.chdir(__dir__) do
-    `git ls-files -z`.split("\x0").reject do |f|
-      (f == __FILE__) || f.match(%r{\A(?:(?:bin|test|spec|features)/|\.(?:git|travis|circleci)|appveyor)})
-    end
-  end
-  spec.bindir = "exe"
-  spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
+  spec.files = Dir.glob("{lib,ext}/**/*") + %w[
+    CHANGELOG.md
+    LICENSE.txt
+    Rakefile
+    README.adoc
+    confium.gemspec
+    Cargo.toml
+    Cargo.lock
+  ]
+  spec.files.reject! { |f| File.directory?(f) }
+  spec.files.reject! { |f| f =~ /\.(dll|so|dylib|lib|bundle)\Z/ }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "ffi"
-  spec.add_development_dependency "rspec"
+  spec.required_ruby_version = ">= 3.1.0"
+
+  # Required for the Rust extension.
+  spec.add_dependency "rb_sys", "~> 0.9.39"
+
+  spec.add_development_dependency "rake", "~> 13.0"
+  spec.add_development_dependency "rake-compiler", "~> 1.2.0"
+  spec.add_development_dependency "rspec", "~> 3.0"
+  spec.add_development_dependency "rubocop", "~> 1.0"
+  spec.add_development_dependency "steep", "~> 1.5"
 end
