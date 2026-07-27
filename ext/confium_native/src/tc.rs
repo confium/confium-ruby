@@ -1,9 +1,15 @@
 //! Confium::TC — threshold cryptography surface for Ruby.
 //!
-//! Phase 1D-1 scope: real P-256 Shamir secret sharing + keypair generation +
-//! single-party sign + verify. Multi-party FROST sessions land in Phase 1D-2
-//! (they need a session/coordinator abstraction that doesn't fit in one PR).
+//! Phase 1D-1 + 1D-2 scope: real P-256 Shamir secret sharing + keypair
+//! generation + single-party sign + threshold ElGamal-P256 (encapsulate
+//! / partial_decrypt / aggregate_partials). Multi-party FROST/CMP20/GG18
+//! session orchestration lands in Phase 1D-3.
 
+use confium_tc_elgamal_p256::{
+    aggregate_partials, encapsulate, partial_decrypt,
+    Ciphertext as ElGamalCiphertext, DecryptionShare, PartialDecryption,
+    PublicKey as ElGamalPublicKey,
+};
 use confium_tc_frost_p256::{
     generate_keypair, public_key_for,
     scalar::{scalar_from_bytes, scalar_to_bytes},
@@ -152,6 +158,69 @@ fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> magnus::RString {
     s
 }
 
+// ===== ElGamal-P256 threshold encryption (KEM-style) =====
+
+fn elgamal_encapsulate(ruby: &Ruby, public_key_bytes: Value) -> Result<RHash, Error> {
+    let bytes = bytes_from_value(public_key_bytes)?;
+    let pk = ElGamalPublicKey { bytes };
+    let (ciphertext, shared_secret) = encapsulate(&pk)
+        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let result = ruby.hash_new();
+    let ct_hash = ruby.hash_new();
+    ct_hash.aset("c1", bytes_to_rstring(ruby, &ciphertext.c1))?;
+    ct_hash.aset("c2", bytes_to_rstring(ruby, &ciphertext.c2))?;
+    result.aset("ciphertext", ct_hash)?;
+    result.aset("shared_secret", bytes_to_rstring(ruby, &shared_secret))?;
+    Ok(result)
+}
+
+fn elgamal_partial_decrypt(party_index: u32, share_bytes: Value, ciphertext_value: Value) -> Result<RHash, Error> {
+    let share_b = bytes_from_value(share_bytes)?;
+    let ct_hash: RHash = RHash::try_convert(ciphertext_value)?;
+    let c1_value: Value = ct_hash.fetch::<_, Value>("c1")?;
+    let c2_value: Value = ct_hash.fetch::<_, Value>("c2")?;
+    let ciphertext = ElGamalCiphertext {
+        c1: bytes_from_value(c1_value)?,
+        c2: bytes_from_value(c2_value)?,
+    };
+    let share = DecryptionShare {
+        party_index,
+        bytes: share_b,
+    };
+    let partial = partial_decrypt(&share, &ciphertext)
+        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let result = ruby.hash_new();
+    result.aset("party_index", partial.party_index)?;
+    result.aset("bytes", bytes_to_rstring(&ruby, &partial.bytes))?;
+    Ok(result)
+}
+
+fn elgamal_aggregate(partials_value: Value, threshold: u32, ciphertext_value: Value) -> Result<magnus::RString, Error> {
+    let arr = magnus::RArray::try_convert(partials_value)?;
+    let mut partials: Vec<PartialDecryption> = Vec::with_capacity(arr.len());
+    for v in arr.each() {
+        let h: RHash = RHash::try_convert(v?)?;
+        let party_index: u32 = h.fetch::<_, u32>("party_index")?;
+        let bytes_value: Value = h.fetch::<_, Value>("bytes")?;
+        partials.push(PartialDecryption {
+            party_index,
+            bytes: bytes_from_value(bytes_value)?,
+        });
+    }
+    let ct_hash: RHash = RHash::try_convert(ciphertext_value)?;
+    let c1_value: Value = ct_hash.fetch::<_, Value>("c1")?;
+    let c2_value: Value = ct_hash.fetch::<_, Value>("c2")?;
+    let ciphertext = ElGamalCiphertext {
+        c1: bytes_from_value(c1_value)?,
+        c2: bytes_from_value(c2_value)?,
+    };
+    let shared = aggregate_partials(&partials, threshold, &ciphertext)
+        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    Ok(bytes_to_rstring(&ruby, &shared))
+}
+
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     let tc = parent.define_module("TC")?;
     let frost = tc.define_module("FrostP256")?;
@@ -163,6 +232,11 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     let share_class = frost.define_class("Share", ruby.class_object())?;
     share_class.define_method("x", method!(ShareWrap::x, 0))?;
     share_class.define_method("y_bytes", method!(ShareWrap::y_bytes, 0))?;
+
+    let elgamal = tc.define_module("ElGamalP256")?;
+    elgamal.define_module_function("encapsulate", function!(elgamal_encapsulate, 1))?;
+    elgamal.define_module_function("partial_decrypt", function!(elgamal_partial_decrypt, 3))?;
+    elgamal.define_module_function("aggregate_partials", function!(elgamal_aggregate, 3))?;
 
     // Touch Scalar to silence unused-import warnings if any.
     let _: Option<Scalar> = None;

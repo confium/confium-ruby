@@ -252,6 +252,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "confium-tc-elgamal-p256"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "113058b4f2c468c2b3e8c218e88bd43aa282af99c121936ae0bb73d9051371a8"
+dependencies = [
+ "elliptic-curve",
+ "p256",
+ "serde",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "confium-tc-frost-p256"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -292,6 +305,7 @@ dependencies = [
  "confium-core",
  "confium-deployment",
  "confium-pki",
+ "confium-tc-elgamal-p256",
  "confium-tc-frost-p256",
  "confium-transparency",
  "ed25519-dalek",
