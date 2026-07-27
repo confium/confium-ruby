@@ -1,0 +1,95 @@
+# frozen_string_literal: true
+
+require "confium"
+
+RSpec.describe Confium::Attributes do
+  describe ".parse" do
+    it "returns a Predicate instance" do
+      pred = described_class.parse(%q{min_count("role:director", 3)})
+      expect(pred).to be_a(described_class::Predicate)
+    end
+
+    it "raises on a malformed expression" do
+      expect {
+        described_class.parse(%q{not_a_function(})
+      }.to raise_error(RuntimeError)
+    end
+  end
+
+  describe Confium::Attributes::Signer do
+    it "starts empty and reports has?/values correctly" do
+      s = described_class.new
+      expect(s.has?("role:director")).to be(false)
+      s.add("role:director", "yes")
+      expect(s.has?("role:director")).to be(true)
+      expect(s.values("role:director")).to eq(["yes"])
+    end
+  end
+
+  describe Confium::Attributes::Predicate do
+    def signer(role: nil, region: nil, **extra)
+      s = Confium::Attributes::Signer.new
+      s.add("role:director", "yes") if role
+      s.add("region", region) if region
+      extra.each { |k, v| s.add(k.to_s, v) }
+      s
+    end
+
+    let(:alice)   { signer(role: true, region: "europe") }
+    let(:bob)     { signer(role: true, region: "americas") }
+    let(:carol)   { signer(role: true, region: "asia-pacific") }
+    let(:non_dir) { signer(region: "europe") }
+
+    it "min_count succeeds when threshold is met" do
+      pred = Confium::Attributes.parse(%q{min_count("role:director", 3)})
+      expect(pred.satisfied_by?([alice, bob, carol])).to be(true)
+    end
+
+    it "min_count fails when threshold is not met" do
+      pred = Confium::Attributes.parse(%q{min_count("role:director", 3)})
+      expect(pred.satisfied_by?([alice, bob])).to be(false)
+    end
+
+    it "min_distinct requires N distinct values" do
+      pred = Confium::Attributes.parse(%q{min_distinct("region", 3)})
+      expect(pred.satisfied_by?([alice, bob, carol])).to be(true)
+      expect(pred.satisfied_by?([alice, bob, alice])).to be(false)
+    end
+
+    it "any requires at least one signer with the attribute" do
+      pred = Confium::Attributes.parse(%q{any("role:director")})
+      expect(pred.satisfied_by?([non_dir, alice])).to be(true)
+      expect(pred.satisfied_by?([non_dir])).to be(false)
+    end
+
+    it "all requires every signer to have the attribute" do
+      pred = Confium::Attributes.parse(%q{all("role:director")})
+      expect(pred.satisfied_by?([alice, bob])).to be(true)
+      expect(pred.satisfied_by?([alice, non_dir])).to be(false)
+    end
+
+    it "none requires no signer to have the attribute" do
+      pred = Confium::Attributes.parse(%q{none("nationality:cn")})
+      expect(pred.satisfied_by?([alice, bob])).to be(true)
+      blocked = signer("nationality:cn": "yes")
+      expect(pred.satisfied_by?([alice, blocked])).to be(false)
+    end
+
+    it "composes via and/or/not" do
+      pred = Confium::Attributes.parse(
+        %q{and(min_count("role:director", 3), min_distinct("region", 3))}
+      )
+      expect(pred.satisfied_by?([alice, bob, carol])).to be(true)
+
+      pred_or = Confium::Attributes.parse(
+        %q{or(min_count("role:director", 5), any("region"))}
+      )
+      expect(pred_or.satisfied_by?([alice])).to be(true)
+
+      pred_not = Confium::Attributes.parse(
+        %q{not(any("nationality:cn"))}
+      )
+      expect(pred_not.satisfied_by?([alice, bob])).to be(true)
+    end
+  end
+end

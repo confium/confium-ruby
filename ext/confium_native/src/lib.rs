@@ -4,6 +4,8 @@
 //! `rb_sys`, and exposes a `Confium::Native` submodule whose functions
 //! are the Rust-backed implementation of the gem's API.
 
+mod attributes;
+mod composite;
 mod transparency;
 
 use magnus::{function, Error, Module, Ruby};
@@ -33,5 +35,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     confium.define_module_function("core_version", function!(core_version, 0))?;
 
     transparency::init(ruby, confium)?;
+    composite::init(ruby, confium)?;
+    attributes::init(ruby, confium)?;
     Ok(())
 }
