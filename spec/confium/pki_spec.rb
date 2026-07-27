@@ -226,3 +226,22 @@ RSpec.describe Confium::PKI::XMLDSig do
     end
   end
 end
+
+RSpec.describe Confium::PKI::CMS::SignedData do
+  describe "#verify_signatures" do
+    it "returns a result object even with no signers" do
+      sd = described_class.from_json(%q|{
+        "version": 1,
+        "digest_algorithms": [],
+        "encap_content_info": {"content_type":"1.2.840.113549.1.7.1"},
+        "certificates":[],
+        "signer_infos":[]
+      }|)
+      result = sd.verify_signatures("payload")
+      expect(result).to be_a(Confium::PKI::CMS::VerificationResult)
+      expect(result.all_verified?).to be(true)
+      expect(result.signer_count).to eq(0)
+      expect(result.per_signer_json).to eq("[]")
+    end
+  end
+end
