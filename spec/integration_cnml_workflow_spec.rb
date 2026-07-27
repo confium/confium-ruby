@@ -13,7 +13,7 @@ require "digest"
 RSpec.describe "CNML-style end-to-end issuer workflow" do
   before(:all) do
     # Generate a test issuing cert once for the whole run.
-    support_dir = File.expand_path("../support", __dir__)
+    support_dir = File.expand_path("support", __dir__)
     FileUtils.mkdir_p(support_dir)
     @pem_path = File.join(support_dir, "cnml_ca.pem")
     @key_path = File.join(support_dir, "cnml_ca.key")

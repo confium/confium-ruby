@@ -5,12 +5,12 @@ require "fileutils"
 require "time"
 
 RSpec.describe Confium::PKI::Certificate do
-  let(:pem) { File.read(File.expand_path("../support/test.pem", __dir__)) }
+  let(:pem) { File.read(File.expand_path("support/test.pem", __dir__)) }
   let(:cert) { described_class.from_pem(pem) }
 
   before(:all) do
     # Generate a test cert once for the whole spec run.
-    support_dir = File.expand_path("../support", __dir__)
+    support_dir = File.expand_path("support", __dir__)
     FileUtils.mkdir_p(support_dir)
     pem_path = File.join(support_dir, "test.pem")
     key_path = File.join(support_dir, "test.key")
@@ -94,7 +94,7 @@ end
 
 RSpec.describe Confium::PKI::CSR do
   before(:all) do
-    support_dir = File.expand_path("../support", __dir__)
+    support_dir = File.expand_path("support", __dir__)
     FileUtils.mkdir_p(support_dir)
     pem_path = File.join(support_dir, "test.pem")
     key_path = File.join(support_dir, "test.key")
@@ -108,7 +108,7 @@ RSpec.describe Confium::PKI::CSR do
     end
   end
 
-  let(:pem) { File.read(File.expand_path("../support/test.csr", __dir__)) }
+  let(:pem) { File.read(File.expand_path("support/test.csr", __dir__)) }
 
   it "round-trips PEM → DER → PEM" do
     csr = described_class.from_pem(pem)
