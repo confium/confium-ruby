@@ -1,0 +1,85 @@
+---
+title: Examples
+description: Index of runnable examples in the confium-ruby gem. Each example is a self-contained Ruby file with prose orientation.
+---
+
+# Examples
+
+The [`examples/`](https://github.com/confium/confium-ruby/tree/main/examples)
+directory contains runnable demos. Each is a self-contained Ruby file
+that you can run with `ruby examples/<name>.rb` after `bundle install`.
+
+## `threshold_signing.rb`
+
+Shamir-split a P-256 secret across 5 parties, recover from any 3,
+and verify the recovered secret matches. Then sign a message with
+the original key and inspect the signature.
+
+Concepts covered:
+
+- Keypair generation via `Confium::TC::FrostP256.generate_keypair`.
+- Secret splitting via `split_secret(threshold, total)`.
+- Recovery via `recover_secret(shares)`.
+- Threshold behavior — insufficient shares return a *wrong* answer
+  rather than raising.
+- Signing via `sign(private_key, message)`.
+
+Run:
+
+```sh
+ruby examples/threshold_signing.rb
+```
+
+## `composite_verify.rb`
+
+Verify a composite signature containing Ed25519 + ECDSA-P256 +
+ML-DSA-65 components. Ed25519 and ECDSA-P256 use built-in verifiers;
+ML-DSA-65 uses a caller-supplied verifier callback (a stub for the
+demo, replace with a real ML-DSA verifier in production).
+
+Concepts covered:
+
+- Loading a composite signature from JSON.
+- Mapping algorithm OIDs to verifier callbacks.
+- Inspecting per-component results via `result.per_component`.
+
+Run:
+
+```sh
+ruby examples/composite_verify.rb
+```
+
+## `transparency_anchor.rb`
+
+Anchor a certificate issuance in a Merkle transparency log. Generate
+a leaf hash, append it, compute the root, then verify the inclusion
+proof.
+
+Concepts covered:
+
+- `Confium::Transparency::MerkleTree.new`.
+- `tree.append(artifact_type:, artifact_hash:)`.
+- `tree.root` and `tree.inclusion_proof(seq)`.
+- `MerkleTree.verify_inclusion(entry:, proof:, root:)`.
+
+Run:
+
+```sh
+ruby examples/transparency_anchor.rb
+```
+
+## Adding a new example
+
+1. Pick a single concept (one crate, one flow). Examples are
+   tutorials, not feature tours.
+2. Keep it under 80 lines. If it needs to be longer, split it.
+3. Print clear output at each step so the user can follow along.
+4. No `double()` or mocks — use real Confium calls throughout.
+5. Use `require "confium"` only (no `require_relative`).
+6. Add a paragraph above the example in this index.
+
+## Related
+
+- [Quickstart: Sinatra verifier](../quickstarts/sinatra-verifier.mdx)
+  — a more complete Sinatra app.
+- [API reference](../api-reference.mdx).

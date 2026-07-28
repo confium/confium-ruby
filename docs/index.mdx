@@ -1,0 +1,79 @@
+---
+title: Confium for Ruby
+description: Native Ruby extension (magnus + rb-sys) wrapping the Confium Rust engine. PKI, transparency, composite signatures, threshold crypto, attribute predicates.
+---
+
+# Confium for Ruby
+
+Confium-Ruby is the native Ruby extension for the Confium threshold
+cryptography framework. It wraps the Rust engine via
+[magnus](https://github.com/matsadler/magnus-rb) and
+[rb-sys](https://github.com/oxidize-rb/rb-sys), building the native
+extension at `gem install` time.
+
+## At a glance
+
+| Surface | Class / module |
+| --- | --- |
+| X.509 certificates | `Confium::PKI::Certificate`, `Confium::PKI::CertificateRequest` |
+| CMS / PKCS#7 | `Confium::PKI::CMS::SignedData` |
+| XMLDSig | `Confium::PKI::XMLDSig` |
+| Composite signatures | `Confium::Composite::Signature` |
+| Transparency log | `Confium::Transparency::MerkleTree`, `Confium::Transparency::InclusionProof` |
+| Attribute predicates | `Confium::Attributes::Predicate` |
+| Threshold crypto | `Confium::TC::FrostP256`, `Confium::TC::ElGamalP256` |
+| Identity | `Confium::Identity::*` |
+| Deployment manifest | `Confium::Config::Manifest` |
+| Sensitive data | `Confium::SecureBytes` |
+| Policy | `Confium::Policy` |
+| Errors | `Confium::Error` + 9 typed subclasses |
+
+## Get started
+
+- [Installation](./installation.mdx)
+- [API reference](./api-reference.mdx)
+- [Error handling](./error-handling.mdx)
+- [Policy](./policy.mdx) — jurisdictional algorithms + FIPS mode.
+
+## Quickstarts
+
+- [Sinatra verifier](./quickstarts/sinatra-verifier.mdx) — verify X.509
+  certs in a Sinatra app.
+- [Composite signatures](./pq-migration/composite-signatures.mdx) —
+  PQ migration via hybrid signatures.
+
+## Examples
+
+The [`examples/`](https://github.com/confium/confium-ruby/tree/main/examples)
+directory contains runnable demos:
+
+- `threshold_signing.rb` — Shamir-split a P-256 secret across 5
+  parties, recover from any 3, sign and verify.
+- `composite_verify.rb` — verify a composite Ed25519 + ECDSA-P256 +
+  ML-DSA-65 signature.
+- `transparency_anchor.rb` — anchor a certificate issuance in a
+  Merkle transparency log.
+
+## Architecture
+
+The Ruby extension is a cdylib (`libconfium_native`) built from
+`ext/confium_native/` using rake-compiler. It exposes Ruby modules
+and classes via magnus; per-method marshalling of bytes, hashes, and
+errors is centralized in `ext/confium_native/src/util.rs`.
+
+The gem's `lib/confium.rb` registers autoloads for the pure-Ruby
+side of the API (typed error hierarchy, `SecureBytes`, `Policy`,
+`PKI::CNML` profile). Internal code never uses `require_relative`;
+the immediate parent namespace's file owns all autoloads for its
+constants.
+
+## Versioning
+
+The gem follows the Rust workspace version (`0.x` while the engine
+stabilizes). Native extension bumps track `confium-core`; gem
+version bumps are released via the standard RubyGems workflow.
+
+## Reporting issues
+
+Open issues at [github.com/confium/confium-ruby/issues](https://github.com/confium/confium-ruby/issues).
+For security disclosures, see the [security policy](https://github.com/confium/confium-ruby/security/policy).

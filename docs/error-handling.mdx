@@ -1,0 +1,146 @@
+---
+title: Error handling
+description: The typed Confium::Error hierarchy with 9 subclasses. Rescue patterns, structured details, and how to surface errors in HTTP responses.
+---
+
+# Error handling
+
+Every failure mode in Confium has a typed error class. There are no
+bare `RuntimeError` raises. Rescue the specific class for the
+specific failure you're handling; rescue `Confium::Error` for any
+Confium-originated failure as a catch-all.
+
+## The hierarchy
+
+```
+StandardError
+└── Confium::Error
+    ├── ParseError             # malformed PEM / DER / JSON input
+    ├── ValidationError       # well-formed but invalid (e.g. expired cert)
+    ├── VerificationError     # signature / proof / inclusion check failed
+    ├── ThresholdError        # threshold protocol failure (e.g. bad share)
+    ├── CryptoError           # underlying primitive failure
+    ├── NotFoundError         # requested signer / cert / share not found
+    ├── IndexError            # sequence number out of range
+    ├── UnresolvedSignerError # required signer could not be resolved
+    └── PolicyViolationError  # jurisdictional / FIPS policy violation
+```
+
+Every error carries:
+
+- `message` — human-readable description.
+- `details` — Hash with structured context (which cert, which
+  algorithm, which check failed).
+
+## Rescue patterns
+
+### Single error type
+
+```ruby
+begin
+  Confium::PKI::Certificate.from_pem(input)
+rescue Confium::ParseError => e
+  warn "Parse failed: #{e.message}"
+  warn "Details: #{e.details.inspect}"
+end
+```
+
+### Multiple specific types
+
+```ruby
+begin
+  result = Confium::PKI::PathValidator.validate(leaf: cert, root: root)
+rescue Confium::ParseError => e
+  halt 400, { error: "parse_failed", details: e.details }.to_json
+rescue Confium::VerificationError => e
+  halt 400, { error: "verification_failed", details: e.details }.to_json
+end
+```
+
+### Catch-all
+
+```ruby
+begin
+  do_confium_thing
+rescue Confium::Error => e
+  # Any Confium-originated failure.
+  halt 500, { error: e.class.name.demodulize.underscore, details: e.details }.to_json
+end
+```
+
+## Surfacing errors in HTTP responses
+
+For Rack / Sinatra / Rails apps, map each typed error to an HTTP
+status. Recommended mapping:
+
+| Error class | HTTP status |
+| --- | --- |
+| `ParseError` | 400 Bad Request |
+| `ValidationError` | 400 Bad Request |
+| `NotFoundError` | 404 Not Found |
+| `UnresolvedSignerError` | 404 Not Found |
+| `VerificationError` | 422 Unprocessable Entity |
+| `ThresholdError` | 422 Unprocessable Entity |
+| `PolicyViolationError` | 403 Forbidden |
+| `CryptoError` | 500 Internal Server Error |
+| `IndexError` | 400 Bad Request |
+
+A Sinatra helper:
+
+```ruby
+helpers do
+  def confium_error_status(err)
+    case err
+    when Confium::ParseError, Confium::ValidationError, Confium::IndexError then 400
+    when Confium::NotFoundError, Confium::UnresolvedSignerError then 404
+    when Confium::VerificationError, Confium::ThresholdError then 422
+    when Confium::PolicyViolationError then 403
+    else 500
+    end
+  end
+end
+
+error Confium::Error do
+  err = env["sinatra.error"]
+  status confium_error_status(err)
+  { error: err.class.name.demodulize.underscore,
+    message: err.message,
+    details: err.details }.to_json
+end
+```
+
+## Inspecting `details`
+
+The shape of `details` is per-error-class. Some examples:
+
+```ruby
+# ParseError
+{ input_type: "pem", offset: 234, expected: "CERTIFICATE" }
+
+# VerificationError (signature)
+{ algorithm: "Ed25519", public_key_fingerprint: "ab12..." }
+
+# VerificationError (path validation)
+{ chain_index: 2, check: "name_constraints", violated_constraint: "..." }
+
+# ThresholdError
+{ session_id: "abc123", round: 2, signer: "director-3" }
+
+# PolicyViolationError
+{ policy: "fips_mode", disallowed_algorithm: "Ed25519",
+  allowed: ["ECDSA-P256", "RSA-3072"] }
+```
+
+Code that reads `details` should treat the keys as advisory and
+defensively check for presence — new keys may be added in any release.
+
+## Anti-patterns
+
+- **Rescuing `StandardError`**: too broad. Always rescue
+  `Confium::Error` at minimum so non-Confium exceptions propagate.
+- **String-matching `e.message`**: errors carry structured `details`
+  for a reason. Inspect the Hash, not the prose.
+- **Silently swallowing**: at minimum log the error class and
+  `details`. Silent rescues hide real bugs.
+- **Reraising as `RuntimeError`**: lose the type. Re-raise the same
+  error or wrap with `Confium::CryptoError.new(cause: original)`.

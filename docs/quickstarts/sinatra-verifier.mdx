@@ -1,26 +1,28 @@
-= Sinatra verifier quickstart
-:toc: macro
+---
+title: Sinatra verifier quickstart
+description: Add Confium to a Sinatra app to verify X.509 certificates and validate chains. A complete ~60-line example with curl test.
+---
+
+# Sinatra verifier quickstart
 
 This guide walks through adding Confium to a Sinatra app to verify
 X.509 certificates and validate chains.
 
-== Prerequisites
+## Prerequisites
 
-* Ruby >= 3.1
-* Rust stable (`rustup default stable`)
-* A CA certificate in PEM format
+- Ruby >= 3.1
+- Rust stable (`rustup default stable`)
+- A CA certificate in PEM format
 
-== Setup
+## Setup
 
-[source,sh]
-----
+```sh
 bundle add confium sinatra puma
-----
+```
 
-== The app
+## The app
 
-[source,ruby]
-----
+```ruby
 # app.rb
 require "sinatra/base"
 require "confium"
@@ -50,33 +52,30 @@ class VerifyApp < Sinatra::Base
     halt 400, { error: "verification_failed", details: e.details }.to_json
   end
 end
-----
+```
 
-== Run
+## Run
 
-[source,sh]
-----
+```sh
 CA_CERT_PATH=./ca.pem bundle exec ruby -S rackup -o 0.0.0.0 -p 4567
-----
+```
 
-== Test
+## Test
 
-[source,sh]
-----
+```sh
 curl -X POST http://localhost:4567/verify --data-binary @client.pem
-----
+```
 
 Expected response:
 
-[source,json]
-----
+```json
 {"valid":true,"subject_cn":"a1b2c3d4e5f67890","not_after":"2027-07-27T...","errors":0}
-----
+```
 
-== Next steps
+## Next steps
 
-* Add threshold-composite signature verification via
+- Add threshold-composite signature verification via
   `Confium::Composite`.
-* Anchor verified certs in a transparency log via
+- Anchor verified certs in a transparency log via
   `Confium::Transparency::MerkleTree`.
-* Set up audit logging via `Confium::Audit.sink = ...`.
+- Set up audit logging via `Confium::Audit.sink = ...`.
