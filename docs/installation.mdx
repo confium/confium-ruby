@@ -1,0 +1,99 @@
+---
+title: Installation
+description: Install the confium Ruby gem via RubyGems, Bundler, or build the native extension from source. Cross-platform support via rake-compiler-dock.
+---
+
+# Installation
+
+Three install paths. Pick the one that matches your workflow.
+
+## Option 1: RubyGems (recommended)
+
+```sh
+gem install confium
+```
+
+The gem's native extension is compiled at install time using
+[rake-compiler](https://github.com/rake-compiler/rake-compiler). You
+need:
+
+- Ruby >= 3.1
+- Rust stable (`rustup default stable`)
+- A C toolchain (cc, make)
+
+That's it — no Botan, no OpenSSL, no Boost. The Confium engine ships
+as static Rust code.
+
+## Option 2: Bundler
+
+Add to your `Gemfile`:
+
+```ruby
+gem "confium"
+```
+
+Then:
+
+```sh
+bundle install
+```
+
+## Option 3: Build from source
+
+For development on the gem itself:
+
+```sh
+git clone https://github.com/confium/confium-ruby.git
+cd confium-ruby
+bundle install
+bundle exec rake compile
+bundle exec rake spec
+```
+
+The native extension builds into `lib/confium/confium_native.bundle`
+(macOS) or `.so` (Linux).
+
+## Cross-platform native compilation
+
+For releases that must ship precompiled gems across platforms
+(Linux x86_64 / aarch64, macOS x86_64 / arm64, Windows x86_64 /
+aarch64), use [rake-compiler-dock](https://github.com/rake-compiler/rake-compiler-dock):
+
+```sh
+bundle add rake-compiler-dock --group development
+bundle exec rake-compiler-dock -- rake native:confium x86_64-linux
+```
+
+The CI workflow in `.github/workflows/` runs this for every release
+tag and pushes the resulting gems to RubyGems.
+
+## Verifying the install
+
+```ruby
+require "confium"
+puts Confium.version
+puts Confium.core_version
+```
+
+Expected output: a gem version string and the underlying
+`confium-core` version string.
+
+## Troubleshooting
+
+**`ERROR: Failed to build gem native extension`**: ensure Rust is
+installed and on your `PATH` (`rustup show`). The gem refuses to
+compile without Rust stable 1.85+.
+
+**`LoadError: cannot load such file -- confium/confium_native`**: the
+native extension didn't compile. Run `bundle exec rake compile` for
+verbose error output.
+
+**`confium/confium_native.bundle: symbol not found`**: you're loading
+a gem built against a different `confium-core`. Reinstall the gem to
+rebuild against the current engine.
+
+## Next steps
+
+- [API reference](./api-reference.mdx)
+- [Sinatra verifier quickstart](./quickstarts/sinatra-verifier.mdx)
+- [Error handling](./error-handling.mdx)

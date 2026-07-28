@@ -1,0 +1,188 @@
+---
+title: API reference
+description: Every public class and module in the confium Ruby gem, organized by subsystem. Method signatures, usage snippets, and cross-links to deeper docs.
+---
+
+# API reference
+
+This page is the curated orientation to every public class and module
+in the `confium` gem. For per-method signatures, see the
+[RBS signatures](https://github.com/confium/confium-ruby/blob/main/sig/confium.rbs)
+which are the source of truth.
+
+## Module tree
+
+```
+Confium
+├── version, core_version          # version strings
+├── SecureBytes                    # zeroize-on-clear byte wrapper
+├── Policy                         # jurisdictional + FIPS hooks
+├── Error                          # root of typed error hierarchy
+│   ├── ParseError
+│   ├── ValidationError
+│   ├── VerificationError
+│   ├── ThresholdError
+│   ├── CryptoError
+│   ├── NotFoundError
+│   ├── IndexError
+│   ├── UnresolvedSignerError
+│   └── PolicyViolationError
+├── PKI
+│   ├── Certificate
+│   ├── CertificateRequest
+│   ├── PathValidator
+│   ├── CNML                       # CNML certificate profile
+│   ├── CMS
+│   │   └── SignedData
+│   └── XMLDSig
+├── Composite
+│   └── Signature
+├── Transparency
+│   ├── MerkleTree
+│   ├── InclusionProof
+│   ├── TreeHead
+│   └── OTS                        # OpenTimestamps client (stub)
+├── Attributes
+│   └── Predicate                  # attribute-based threshold DSL
+├── TC
+│   ├── FrostP256                  # P-256 Shamir + ECDSA
+│   └── ElGamalP256                # threshold ElGamal
+├── Identity
+│   ├── Actor                      # manufacturer, lab, director, etc.
+│   └── Backend                    # pluggable identity source
+└── Config
+    └── Manifest                   # deployment manifest (TOML)
+```
+
+## Confium (top-level)
+
+```ruby
+Confium.version        # => "0.1.0"
+Confium.core_version   # => "0.2.0" (underlying confium-core)
+```
+
+## Confium::SecureBytes
+
+A byte wrapper that zeroizes its content on garbage collection or
+explicit `clear`. Use it for any secret material (private keys,
+shares, nonces).
+
+```ruby
+secret = Confium::SecureBytes.from_hex("a1b2c3...")
+bytes = secret.to_bytes   # => String (binary encoding)
+secret.clear              # zeroizes immediately
+```
+
+## Confium::PKI::Certificate
+
+```ruby
+cert = Confium::PKI::Certificate.from_pem(File.read("cert.pem"))
+cert.subject_cn              # => "example.com"
+cert.issuer_cn               # => "Confium CA"
+cert.not_before              # => Time
+cert.not_after               # => Time
+cert.fingerprint_sha256      # => String (hex)
+cert.public_key_algorithm    # => "Ed25519" | "ECDSA-P256" | ...
+cert.public_key_bytes        # => String (binary)
+```
+
+## Confium::PKI::PathValidator
+
+```ruby
+result = Confium::PKI::PathValidator.validate(
+  leaf: cert,
+  intermediates: [inter_cert],
+  root: root_cert,
+)
+result.valid?         # => true | false
+result.check_count    # => integer
+result.errors         # => Array<Hash>
+```
+
+## Confium::Composite::Signature
+
+Composite multi-algorithm signature for PQ migration. See
+[the PQ migration guide](./pq-migration/composite-signatures.mdx).
+
+```ruby
+sig = Confium::Composite::Signature.from_json(json_string)
+result = sig.verify(message_bytes, verifiers_hash)
+result.all_verified?    # => true | false
+result.per_component    # => { "Ed25519" => true, ... }
+```
+
+## Confium::Transparency::MerkleTree
+
+Append-only Merkle tree (RFC 6962).
+
+```ruby
+tree = Confium::Transparency::MerkleTree.new
+seq = tree.append(artifact_type: :certificate_issuance,
+                  artifact_hash: hash_bytes)
+tree.root             # => String (32 bytes)
+tree.size             # => integer
+
+proof = tree.inclusion_proof(seq)
+proof.sequence        # => integer
+proof.steps           # => Array of { sibling:, side: }
+
+tree.verify_inclusion(entry: entry_hash, proof: proof, root: root_bytes)
+# => true | raises Confium::VerificationError
+```
+
+## Confium::Attributes::Predicate
+
+Attribute-based threshold predicate DSL. Supports "T-of-N directors
+from K distinct regions".
+
+```ruby
+predicate = Confium::Attributes::Predicate.parse(<<~DSL)
+  3-of-5 directors
+  from 3 distinct regions
+DSL
+
+predicate.satisfied?(actors: directors, attributes: { region: ... })
+# => true | false
+```
+
+## Confium::TC::FrostP256
+
+P-256 Shamir secret sharing + threshold ECDSA.
+
+```ruby
+kp = Confium::TC::FrostP256.generate_keypair
+shares = Confium::TC::FrostP256.split_secret(kp["private_key"], 3, 5)
+sig = Confium::TC::FrostP256.sign(kp["private_key"], "message")
+# sig["der"], sig["fixed"]
+```
+
+## Confium::Config::Manifest
+
+Deployment manifest (TOML) describing signers, quorum, policies.
+
+```ruby
+manifest = Confium::Config::Manifest.from_file("deploy.toml")
+manifest.signers       # => Array<Hash>
+manifest.quorum        # => { t:, n: }
+manifest.policy        # => Confium::Policy
+```
+
+## Confium::Policy
+
+Jurisdictional algorithm allow-lists and FIPS mode toggle.
+
+```ruby
+Confium::Policy.fips_mode = true   # routes via FIPS-validated plugin
+Confium::Policy.allowed_algorithms = ["Ed25519", "ECDSA-P256"]
+```
+
+See [the policy page](./policy.mdx) for details.
+
+## Related
+
+- [Installation](./installation.mdx)
+- [Error handling](./error-handling.mdx)
+- [Policy](./policy.mdx)
+- [Sinatra verifier quickstart](./quickstarts/sinatra-verifier.mdx)
+- [RBS signatures](https://github.com/confium/confium-ruby/blob/main/sig/confium.rbs)
+  (canonical method signatures).
