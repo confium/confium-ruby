@@ -82,6 +82,69 @@ impl MerkleTree {
         Ok(arr)
     }
 
+    /// Verify a consistency proof (RFC 6962 §2.1.2).
+    ///
+    /// Brute-force verifier: recomputes this tree's root at `old_size`
+    /// and its current root, compares to `old_root` and `new_root`.
+    ///
+    /// Ruby signature:
+    ///   tree.verify_consistency(old_root, new_root, old_size, new_size, proof)
+    ///
+    /// - old_root: 32-byte binary String (root of tree at old_size)
+    /// - new_root: 32-byte binary String (root of current tree)
+    /// - old_size: Integer
+    /// - new_size: Integer (must equal `tree.size`)
+    /// - proof:    Array of 32-byte binary Strings from `consistency_proof`
+    ///
+    /// Returns true if valid, raises RuntimeError otherwise.
+    fn verify_consistency(
+        &self,
+        old_root: Value,
+        new_root: Value,
+        old_size: usize,
+        new_size: usize,
+        proof: magnus::RArray,
+    ) -> Result<bool, Error> {
+        let old_bytes = bytes_from_value(old_root)?;
+        if old_bytes.len() != 32 {
+            return Err(Error::new(
+                exception::arg_error(),
+                format!("old_root must be 32 bytes, got {}", old_bytes.len()),
+            ));
+        }
+        let new_bytes = bytes_from_value(new_root)?;
+        if new_bytes.len() != 32 {
+            return Err(Error::new(
+                exception::arg_error(),
+                format!("new_root must be 32 bytes, got {}", new_bytes.len()),
+            ));
+        }
+        let mut old_root_hash: Hash = [0u8; 32];
+        old_root_hash.copy_from_slice(&old_bytes);
+        let mut new_root_hash: Hash = [0u8; 32];
+        new_root_hash.copy_from_slice(&new_bytes);
+
+        let mut proof_hashes: Vec<Hash> = Vec::with_capacity(proof.len());
+        for item in proof.each() {
+            let bytes = bytes_from_value(item?)?;
+            if bytes.len() != 32 {
+                return Err(Error::new(
+                    exception::arg_error(),
+                    format!("proof entries must be 32 bytes, got {}", bytes.len()),
+                ));
+            }
+            let mut h: Hash = [0u8; 32];
+            h.copy_from_slice(&bytes);
+            proof_hashes.push(h);
+        }
+
+        self.inner
+            .borrow()
+            .verify_consistency(old_root_hash, new_root_hash, old_size, new_size, &proof_hashes)
+            .map(|_| true)
+            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+    }
+
     fn root(&self) -> Value {
         let ruby = Ruby::get().expect("Ruby must be available");
         let bytes = self.inner.borrow().root();
@@ -229,6 +292,10 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     tree_class.define_method("entries", method!(MerkleTree::entries, 0))?;
     tree_class.define_method("to_a", method!(MerkleTree::entries, 0))?;
     tree_class.define_method("consistency_proof", method!(MerkleTree::consistency_proof, 1))?;
+    tree_class.define_method(
+        "verify_consistency",
+        method!(MerkleTree::verify_consistency, 5),
+    )?;
 
     let proof_class = transparency.define_class("InclusionProof", ruby.class_object())?;
     proof_class.define_method("sequence", method!(InclusionProofWrap::sequence, 0))?;
