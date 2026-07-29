@@ -18,6 +18,11 @@ rescue LoadError => e
   raise e
 end
 
+# Register autoloads on the native-defined PKI::CMS module so Ruby
+# companions like SignedDataBuilder load on first reference. Eager-
+# required because the module already exists at this point.
+require_relative "confium/pki/cms"
+
 module Confium
   # Error hierarchy autoloads. Each subclass lives in its own file so
   # callers can `autoload :FooError, "confium/errors/foo"` and avoid
@@ -34,4 +39,5 @@ module Confium
   autoload :PolicyViolationError, "confium/errors/policy_violation_error"
   autoload :SecureBytes,          "confium/secure_bytes"
   autoload :Policy,               "confium/policy"
+  autoload :PKI,                  "confium/pki"
 end

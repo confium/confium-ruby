@@ -23,7 +23,10 @@ RSpec.describe Confium::PKI::CMS::SignedDataBuilder do
     kp = Confium::Composite.generate_ed25519_keypair
     builder = described_class.new
     builder.content = "hello".b
-    builder.add_signer(cert_der: "fake-cert".b, private_key: kp["private_key"], algorithm: :ed25519)
+    # Real SubjectKeyIdentifier extraction requires at least 20 bytes
+    # (RFC 5652 §5.3 SKI convention). Use a realistic-sized fake cert.
+    fake_cert = ("\x30\x82\x01\x00" + "C" * 256).b
+    builder.add_signer(cert_der: fake_cert, private_key: kp["private_key"], algorithm: :ed25519)
     sd = builder.build
     expect(sd).to be_a(Confium::PKI::CMS::SignedData)
     expect(sd.signer_count).to eq(1)

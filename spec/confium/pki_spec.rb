@@ -245,3 +245,136 @@ RSpec.describe Confium::PKI::CMS::SignedData do
     end
   end
 end
+
+RSpec.describe Confium::PKI::CMS::SignedData, "#to_der" do
+  it "encodes a SignedData as RFC 5652 ContentInfo DER" do
+    sd_json = %q|{
+      "version": 1,
+      "digest_algorithms": [{"oid":"2.16.840.1.101.3.4.2.1"}],
+      "encap_content_info": {
+        "content_type":"1.2.840.113549.1.7.1",
+        "content":[72,101,108,108,111]
+      },
+      "certificates":[],
+      "signer_infos":[]
+    }|
+    sd = described_class.from_json(sd_json)
+    der = sd.to_der
+    expect(der).to be_a(String)
+    expect(der.encoding).to eq(Encoding::ASCII_8BIT)
+    # Outer SEQUENCE tag = 0x30 per RFC 5652 §3.
+    expect(der.bytes.first).to eq(0x30)
+  end
+end
+
+RSpec.describe Confium::PKI::CMS::SignedData, ".build_detached" do
+  let(:ed25519_keypair) { Confium::Composite.generate_ed25519_keypair }
+  let(:private_key) { ed25519_keypair["private_key"] }
+  let(:fake_cert_der) { ("\x30\x82\x01\x00" + "X" * 256).b }
+
+  it "builds a detached SignedData from a pre-computed signature" do
+    message = "hello cms sign path"
+    signature = Confium::Composite.sign_ed25519(private_key, message).fetch("signature")
+
+    sd = described_class.build_detached(
+      signature,
+      "1.3.101.112",  # Ed25519 OID
+      [fake_cert_der],
+    )
+
+    expect(sd).to be_a(described_class)
+    expect(sd.signer_count).to eq(1)
+    expect(sd.content).to be_nil  # detached
+  end
+
+  it "encodes to DER" do
+    signature = Confium::Composite.sign_ed25519(private_key, "payload").fetch("signature")
+    sd = described_class.build_detached(
+      signature,
+      "1.3.101.112",
+      [fake_cert_der],
+    )
+    der = sd.to_der
+    expect(der.bytes.first).to eq(0x30)
+    expect(der.bytesize).to be > 300
+  end
+
+  it "round-trips through JSON" do
+    signature = Confium::Composite.sign_ed25519(private_key, "round-trip").fetch("signature")
+    sd = described_class.build_detached(
+      signature,
+      "1.3.101.112",
+      [fake_cert_der],
+    )
+    parsed = described_class.from_json(sd.to_json)
+    expect(parsed.signer_count).to eq(1)
+  end
+
+  it "accepts a payload_hash via the Ruby builder" do
+    signature = Confium::Composite.sign_ed25519(private_key, "payload").fetch("signature")
+    sd = described_class.build_detached(
+      signature,
+      "1.3.101.112",
+      [fake_cert_der],
+    )
+    expect(sd.signer_count).to eq(1)
+  end
+
+  it "raises when signature is nil" do
+    expect {
+      described_class.build_detached(
+        nil,
+        "1.3.101.112",
+        [fake_cert_der],
+      )
+    }.to raise_error(ArgumentError, /signature/)
+  end
+
+  it "raises when certificates is nil" do
+    signature = Confium::Composite.sign_ed25519(private_key, "x").fetch("signature")
+    expect {
+      described_class.build_detached(
+        signature,
+        "1.3.101.112",
+        nil,
+      )
+    }.to raise_error(ArgumentError, /certificates/)
+  end
+end
+
+RSpec.describe Confium::PKI::CMS::SignedDataBuilder do
+  let(:ed25519_keypair) { Confium::Composite.generate_ed25519_keypair }
+  let(:private_key) { ed25519_keypair["private_key"] }
+  let(:fake_cert_der) { ("\x30\x82\x01\x00" + "C" * 256).b }
+
+  it "builds a detached SignedData end-to-end via the builder" do
+    builder = described_class.new
+    builder.content = "builder integration test".b
+    builder.add_signer(cert_der: fake_cert_der, private_key: private_key, algorithm: :ed25519)
+
+    sd = builder.build
+    expect(sd).to be_a(Confium::PKI::CMS::SignedData)
+    expect(sd.signer_count).to eq(1)
+    expect(sd.to_der.bytes.first).to eq(0x30)
+  end
+
+  it "rejects unsupported algorithm" do
+    builder = described_class.new
+    builder.content = "x"
+    expect {
+      builder.add_signer(cert_der: fake_cert_der, private_key: private_key, algorithm: :bogus)
+    }.to raise_error(ArgumentError, /unsupported algorithm/)
+  end
+
+  it "requires at least one signer" do
+    builder = described_class.new
+    builder.content = "x"
+    expect { builder.build }.to raise_error(ArgumentError, /at least one signer/)
+  end
+
+  it "requires content" do
+    builder = described_class.new
+    builder.add_signer(cert_der: fake_cert_der, private_key: private_key, algorithm: :ed25519)
+    expect { builder.build }.to raise_error(ArgumentError, /#content is required/)
+  end
+end

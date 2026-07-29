@@ -14,7 +14,9 @@ use crate::util::{bytes_from_value, bytes_to_rstring, enforce_size};
 use chrono::{DateTime, Utc};
 use confium_pki::{
     cert::{Certificate as RustCert, CertificateSigningRequest as RustCsr},
-    cms::SignedData as RustSignedData,
+    cms::{
+        build_detached_signature, encode_signed_data_der, SignedData as RustSignedData,
+    },
     xmldsig::{canonicalize, canonicalize_exclusive},
 };
 use magnus::{
@@ -140,9 +142,72 @@ impl SignedData {
         }))
     }
 
+    /// Build a detached CMS SignedData with one signer.
+    ///
+    /// Ruby signature:
+    ///   SignedData.build_detached(signature, algorithm, certificates)
+    ///
+    /// - `signature`     — bytes (pre-computed signature over the payload)
+    /// - `algorithm`     — string (signature algorithm OID)
+    /// - `certificates`  — array of strings (DER cert bytes per signer)
+    ///
+    /// The caller signs the payload separately (typically via
+    /// `Confium::Composite.sign_ed25519` or `Confium::TC::FrostP256.sign`)
+    /// and passes the resulting signature bytes here. The first
+    /// certificate's first 20 bytes become the SubjectKeyIdentifier per
+    /// RFC 5652 §5.3.
+    fn build_detached(
+        signature: Value,
+        algorithm: String,
+        certificates: Value,
+    ) -> Result<Obj<Self>, Error> {
+        if signature.is_nil() {
+            return Err(Error::new(
+                exception::arg_error(),
+                "signature is required",
+            ));
+        }
+        if certificates.is_nil() {
+            return Err(Error::new(
+                exception::arg_error(),
+                "certificates is required",
+            ));
+        }
+
+        let sig_bytes = bytes_from_value(signature)?;
+        enforce_size(sig_bytes.len())?;
+
+        let certs_array: magnus::RArray = magnus::RArray::try_convert(certificates)?;
+        let mut cert_ders = Vec::with_capacity(certs_array.len());
+        for item in certs_array.each() {
+            let v = item?;
+            let der = bytes_from_value(v)?;
+            enforce_size(der.len())?;
+            cert_ders.push(der);
+        }
+
+        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let sd = build_detached_signature(Vec::new(), algorithm, sig_bytes, cert_ders)
+            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        Ok(ruby.obj_wrap(Self {
+            inner: std::cell::RefCell::new(sd),
+        }))
+    }
+
     fn to_json(&self) -> Result<String, Error> {
         serde_json::to_string(&*self.inner.borrow())
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+    }
+
+    /// Encode this SignedData as DER bytes (RFC 5652 ContentInfo).
+    ///
+    /// The output is parseable by `openssl cms` / `openssl pkcs7` and
+    /// any standards-compliant CMS consumer.
+    fn to_der(&self) -> Result<RString, Error> {
+        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let der = encode_signed_data_der(&*self.inner.borrow())
+            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        Ok(bytes_to_rstring(&ruby, &der))
     }
 
     fn signer_count(&self) -> usize {
@@ -332,7 +397,9 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     let cms = pki.define_module("CMS")?;
     let sd_class = cms.define_class("SignedData", ruby.class_object())?;
     sd_class.define_singleton_method("from_json", function!(SignedData::from_json, 1))?;
+    sd_class.define_singleton_method("build_detached", function!(SignedData::build_detached, 3))?;
     sd_class.define_method("to_json", method!(SignedData::to_json, 0))?;
+    sd_class.define_method("to_der", method!(SignedData::to_der, 0))?;
     sd_class.define_method("signer_count", method!(SignedData::signer_count, 0))?;
     sd_class.define_method("signing_time", method!(SignedData::signing_time_iso8601, 0))?;
     sd_class.define_method("content_type", method!(SignedData::content_type, 0))?;
