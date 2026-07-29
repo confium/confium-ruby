@@ -40,4 +40,5 @@ module Confium
   autoload :SecureBytes,          "confium/secure_bytes"
   autoload :Policy,               "confium/policy"
   autoload :PKI,                  "confium/pki"
+  autoload :OpenPGP,              "confium/openpgp"
 end
