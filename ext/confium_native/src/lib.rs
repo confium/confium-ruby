@@ -8,6 +8,7 @@ mod audit;
 mod attributes;
 mod composite;
 mod deployment;
+mod ers;
 mod openpgp;
 mod path;
 mod pki;
@@ -49,6 +50,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     deployment::init(ruby, confium)?;
     tc::init(ruby, confium)?;
     audit::init(ruby, confium)?;
+    ers::init(ruby, confium)?;
     openpgp::init(ruby, confium)?;
     Ok(())
 }
