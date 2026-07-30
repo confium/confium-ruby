@@ -23,6 +23,11 @@ end
 # required because the module already exists at this point.
 require_relative "confium/pki/cms"
 
+# The native extension defines Confium::OpenPGP with _native_armor /
+# _native_dearmor. This file adds the idiomatic Ruby wrappers with
+# default args. Eager-required for the same reason as PKI::CMS.
+require_relative "confium/openpgp"
+
 module Confium
   # Error hierarchy autoloads. Each subclass lives in its own file so
   # callers can `autoload :FooError, "confium/errors/foo"` and avoid
@@ -40,5 +45,4 @@ module Confium
   autoload :SecureBytes,          "confium/secure_bytes"
   autoload :Policy,               "confium/policy"
   autoload :PKI,                  "confium/pki"
-  autoload :OpenPGP,              "confium/openpgp"
 end

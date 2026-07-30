@@ -2,87 +2,57 @@
 
 require "confium"
 
+# Confium::OpenPGP is now a NATIVE extension module backed by bundled
+# rnp-rs (OpenPGP, RFC 9580). No external gem dependency required.
 RSpec.describe Confium::OpenPGP do
-  describe ".available?" do
-    it "returns a boolean" do
-      result = described_class.available?
-      expect([true, false]).to include(result)
+  describe "constants" do
+    it "exposes armor type constants" do
+      expect(Confium::OpenPGP::MESSAGE).to eq("message")
+      expect(Confium::OpenPGP::PUBLIC_KEY).to eq("public key")
+      expect(Confium::OpenPGP::SECRET_KEY).to eq("secret key")
+      expect(Confium::OpenPGP::SIGNATURE).to eq("signature")
+      expect(Confium::OpenPGP::CLEARTEXT).to eq("cleartext signed message")
     end
   end
 
-  describe ".ensure_available!" do
-    context "when ruby-rnp is not installed" do
-      before do
-        allow(described_class).to receive(:available?).and_return(false)
-      end
+  describe ".armor" do
+    it "ASCII-armors raw bytes as a message by default" do
+      result = described_class.armor("hello world")
+      expect(result).to include("-----BEGIN PGP MESSAGE-----")
+      expect(result).to include("-----END PGP MESSAGE-----")
+    end
 
-      it "raises NotInstalledError with install instructions" do
-        expect { described_class.ensure_available! }.to raise_error(
-          Confium::OpenPGP::NotInstalledError, /gem install ruby-rnp/
-        )
-      end
+    it "accepts a type argument for different armor headers" do
+      result = described_class.armor("test data", Confium::OpenPGP::SIGNATURE)
+      expect(result).to include("-----BEGIN PGP SIGNATURE-----")
+    end
+
+    it "accepts public_key type" do
+      result = described_class.armor("key data", Confium::OpenPGP::PUBLIC_KEY)
+      expect(result).to include("-----BEGIN PGP PUBLIC KEY BLOCK-----")
     end
   end
 
-  describe ".verify" do
-    context "when ruby-rnp is not installed" do
-      before do
-        allow(described_class).to receive(:available?).and_return(false)
-      end
+  describe ".dearmor" do
+    it "decodes armored data back to raw bytes" do
+      armored = described_class.armor("round trip test")
+      decoded = described_class.dearmor(armored)
+      expect(decoded).to eq("round trip test")
+    end
 
-      it "raises NotInstalledError" do
-        expect {
-          described_class.verify("sig", "data", "key")
-        }.to raise_error(Confium::OpenPGP::NotInstalledError)
-      end
+    it "raises on non-armored input" do
+      expect {
+        described_class.dearmor("not armored data")
+      }.to raise_error(RuntimeError)
     end
   end
 
-  describe ".sign" do
-    context "when ruby-rnp is not installed" do
-      before do
-        allow(described_class).to receive(:available?).and_return(false)
-      end
-
-      it "raises NotInstalledError" do
-        expect {
-          described_class.sign("data", "key_armor")
-        }.to raise_error(Confium::OpenPGP::NotInstalledError)
-      end
-    end
-  end
-
-  describe ".generate_key" do
-    context "when ruby-rnp is not installed" do
-      before do
-        allow(described_class).to receive(:available?).and_return(false)
-      end
-
-      it "raises NotInstalledError" do
-        expect {
-          described_class.generate_key("test@example.com")
-        }.to raise_error(Confium::OpenPGP::NotInstalledError)
-      end
-    end
-  end
-
-  describe ".encrypt" do
-    context "when ruby-rnp is not installed" do
-      before do
-        allow(described_class).to receive(:available?).and_return(false)
-      end
-
-      it "raises NotInstalledError" do
-        expect {
-          described_class.encrypt("data", "pubkey")
-        }.to raise_error(Confium::OpenPGP::NotInstalledError)
-      end
-    end
-  end
-
-  describe "NotInstalledError" do
-    it "is a subclass of Confium::Error" do
-      expect(Confium::OpenPGP::NotInstalledError.ancestors).to include(Confium::Error)
+  describe ".armor + .dearmor round-trip" do
+    it "preserves binary data" do
+      binary_data = ("\x00\x01\x02\xFF\xFE".b * 10)
+      armored = described_class.armor(binary_data)
+      decoded = described_class.dearmor(armored)
+      expect(decoded).to eq(binary_data)
     end
   end
 end
