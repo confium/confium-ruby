@@ -46,5 +46,9 @@ sha2 = "0.10"
 chrono = "0.4"
 serde_json = "1"
 
+# RNP (OpenPGP, RFC 9580) — hard-bundled so Confium ships with
+# standard OpenPGP armor encode/decode + key management out of the box.
+rnp = { package = "rnp-rs", version = "0.1.10" }
+
 [profile.release]
 lto = "off"
