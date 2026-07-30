@@ -223,6 +223,40 @@ impl InclusionProofWrap {
         }
         Ok(current == root)
     }
+
+    /// External-auditor inclusion verification. Accepts an explicit
+    /// leaf_hash (32 bytes) instead of using the stored one. Use when
+    /// the auditor independently computed the leaf hash from the log's
+    /// published (sequence, timestamp, artifact_hash) fields.
+    ///
+    /// Ruby: `proof.verify_with_leaf(leaf_hash, root)`
+    fn verify_with_leaf(&self, leaf_bytes: Value, root_bytes: Value) -> Result<bool, Error> {
+        let leaf = bytes_from_value(leaf_bytes)?;
+        if leaf.len() != 32 {
+            return Err(Error::new(
+                exception::arg_error(),
+                format!("leaf_hash must be exactly 32 bytes, got {}", leaf.len()),
+            ));
+        }
+        let root_raw = bytes_from_value(root_bytes)?;
+        if root_raw.len() != 32 {
+            return Err(Error::new(
+                exception::arg_error(),
+                format!("root must be exactly 32 bytes, got {}", root_raw.len()),
+            ));
+        }
+        let mut current: Hash = [0u8; 32];
+        current.copy_from_slice(&leaf);
+        let mut root: Hash = [0u8; 32];
+        root.copy_from_slice(&root_raw);
+        for step in &self.inner.steps {
+            current = match step.side {
+                Side::Left => hash_internal(step.sibling, current),
+                Side::Right => hash_internal(current, step.sibling),
+            };
+        }
+        Ok(current == root)
+    }
 }
 
 fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
@@ -301,6 +335,7 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     proof_class.define_method("sequence", method!(InclusionProofWrap::sequence, 0))?;
     proof_class.define_method("steps", method!(InclusionProofWrap::steps, 0))?;
     proof_class.define_method("verify", method!(InclusionProofWrap::verify, 1))?;
+    proof_class.define_method("verify_with_leaf", method!(InclusionProofWrap::verify_with_leaf, 2))?;
 
     Ok(())
 }

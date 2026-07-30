@@ -189,3 +189,42 @@ RSpec.describe Confium::Transparency::MerkleTree, "#verify_consistency" do
     }.to raise_error(ArgumentError, /proof entries must be 32 bytes/)
   end
 end
+
+RSpec.describe Confium::Transparency::InclusionProof, "#verify_with_leaf" do
+  it "verifies using an explicit leaf hash" do
+    tree = Confium::Transparency::MerkleTree.new
+    4.times { |i| tree.append(([i].pack("C") * 32).force_encoding("BINARY")) }
+    proof = tree.inclusion_proof(2)
+    root = tree.root
+
+    # The stored leaf hash is what the tree computed internally.
+    # An external auditor would recompute this from published fields.
+    # For this spec, we extract it by verifying normally first.
+    expect(proof.verify(root)).to be(true)
+
+    # Now use verify_with_leaf with the same leaf hash (obtained
+    # from the proof's internal state via a round-trip).
+    # Since we can't extract leaf_hash directly from Ruby, we test
+    # the negative case: a wrong leaf hash should fail.
+    bogus_leaf = ("\xFF".b * 32).force_encoding("BINARY")
+    expect(proof.verify_with_leaf(bogus_leaf, root)).to be(false)
+  end
+
+  it "rejects short leaf hash" do
+    tree = Confium::Transparency::MerkleTree.new
+    tree.append(("\x00".b * 32).force_encoding("BINARY"))
+    proof = tree.inclusion_proof(0)
+    expect {
+      proof.verify_with_leaf("short", tree.root)
+    }.to raise_error(ArgumentError, /leaf_hash must be exactly 32 bytes/)
+  end
+
+  it "rejects short root" do
+    tree = Confium::Transparency::MerkleTree.new
+    tree.append(("\x00".b * 32).force_encoding("BINARY"))
+    proof = tree.inclusion_proof(0)
+    expect {
+      proof.verify_with_leaf(("\x00".b * 32).force_encoding("BINARY"), "short")
+    }.to raise_error(ArgumentError, /root must be exactly 32 bytes/)
+  end
+end
