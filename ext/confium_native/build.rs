@@ -48,12 +48,6 @@ fn main() {
         }
         None => panic!("confium-core not found in Cargo.lock"),
     }
-
-    // Add rpath for librnp so the compiled bundle finds it at load time
-    // without requiring DYLD_LIBRARY_PATH on every invocation.
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-arg=-Wl,-rpath,/opt/homebrew/lib");
-    }
 }
 
 /// Walk up the directory tree from `start` until we find a Cargo.toml
