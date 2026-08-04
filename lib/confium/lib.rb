@@ -18,7 +18,7 @@ module Confium
       cfm_hash_destroy: [ %i[pointer], :void ],
     }.freeze
 
-    ffi_lib(%w[confium libconfium])
+    ffi_lib([ENV["CONFIUM_LIB"], "confium", "libconfium"].compact)
 
     FFI_LAYOUT.each do |func, ary|
       begin
