@@ -221,7 +221,8 @@ impl InclusionProofWrap {
                 Side::Right => hash_internal(current, step.sibling),
             };
         }
-        Ok(current == root)
+        use subtle::ConstantTimeEq;
+        Ok(current.ct_eq(&root).into())
     }
 
     /// External-auditor inclusion verification. Accepts an explicit
@@ -255,7 +256,8 @@ impl InclusionProofWrap {
                 Side::Right => hash_internal(current, step.sibling),
             };
         }
-        Ok(current == root)
+        use subtle::ConstantTimeEq;
+        Ok(current.ct_eq(&root).into())
     }
 }
 
