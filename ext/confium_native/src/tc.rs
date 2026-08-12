@@ -17,7 +17,7 @@ use confium_tc_frost_p256::{
     sign_message,
     Keypair,
 };
-use magnus::{exception, function, method, prelude::*, DataTypeFunctions, Error, Module, Object, RHash, Ruby, TryConvert, TypedData, Value};
+use magnus::{exception, function, method, DataTypeFunctions, Error, Module, RHash, Ruby, TryConvert, TypedData, Value};
 use p256::Scalar;
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -93,7 +93,7 @@ fn recover(shares_value: Value) -> Result<magnus::RString, Error> {
     let secret = recover_secret(&refs)
         .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
     let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
-    Ok(bytes_to_rstring(&ruby, &scalar_to_bytes(&secret).to_vec()))
+    Ok(bytes_to_rstring(&ruby, scalar_to_bytes(&secret).as_ref()))
 }
 
 fn keypair(ruby: &Ruby) -> Result<RHash, Error> {
@@ -101,7 +101,7 @@ fn keypair(ruby: &Ruby) -> Result<RHash, Error> {
     let result = ruby.hash_new();
     let signing_bytes = kp.to_signing_key().to_bytes();
     let verifying_bytes = kp.to_verifying_key().to_sec1_bytes();
-    result.aset("private_key", bytes_to_rstring(ruby, &signing_bytes.to_vec()))?;
+    result.aset("private_key", bytes_to_rstring(ruby, &signing_bytes))?;
     result.aset("public_key", bytes_to_rstring(ruby, &verifying_bytes))?;
     Ok(result)
 }

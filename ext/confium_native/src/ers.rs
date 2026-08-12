@@ -5,7 +5,7 @@ use confium_transparency::ers::{
     EvidenceRecord, HashAlgorithm,
 };
 use magnus::{
-    exception, function, method, prelude::*, typed_data::Obj,
+    exception, function, method, typed_data::Obj,
     DataTypeFunctions, Error, Module, Object, Ruby, TryConvert, TypedData, Value,
 };
 

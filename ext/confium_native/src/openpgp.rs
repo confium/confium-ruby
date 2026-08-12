@@ -39,7 +39,7 @@ fn native_dearmor(ruby: &Ruby, data: Value) -> Result<magnus::RString, Error> {
 }
 
 /// Initialize the `Confium::OpenPGP` module.
-pub fn init(ruby: &Ruby, parent: RModule) -> Result<(), Error> {
+pub fn init(_ruby: &Ruby, parent: RModule) -> Result<(), Error> {
     let openpgp = parent.define_module("OpenPGP")?;
 
     openpgp.define_singleton_method("_native_armor", function!(native_armor, 2))?;

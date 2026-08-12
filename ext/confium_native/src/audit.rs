@@ -4,7 +4,7 @@
 //! Confium::Audit. The sink is a Ruby Proc that receives an audit
 //! record Hash.
 
-use magnus::{exception, function, prelude::*, Error, Module, Object, RHash, Ruby, Value};
+use magnus::{exception, function, prelude::*, Error, Module, Ruby, Value};
 
 const SINK_IVAR: &str = "@sink";
 
