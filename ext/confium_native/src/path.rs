@@ -10,7 +10,7 @@ use confium_pki::{
     path::{validate_path, CertPath},
     result::VerificationResult as PathVerificationResult,
 };
-use magnus::{exception, function, method, prelude::*, DataTypeFunctions, Error, Module, Object, Ruby, TypedData, Value};
+use magnus::{exception, function, method, prelude::*, DataTypeFunctions, Error, Module, Ruby, TypedData, Value};
 
 /// Wraps a confium_pki::path::VerificationResult.
 #[derive(TypedData, DataTypeFunctions)]

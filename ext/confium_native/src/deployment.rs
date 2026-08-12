@@ -12,7 +12,7 @@ use confium_deployment::{
     validate::validate_manifest,
 };
 use crate::util::enforce_size;
-use magnus::{exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, Module, Object, Ruby, TypedData};
+use magnus::{exception, function, method, typed_data::Obj, DataTypeFunctions, Error, Module, Object, Ruby, TypedData};
 
 #[derive(TypedData, DataTypeFunctions)]
 #[magnus(class = "Confium::Identity::Actor", size)]

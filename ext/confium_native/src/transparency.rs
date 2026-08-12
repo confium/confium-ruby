@@ -11,7 +11,7 @@ use confium_transparency::{
 };
 use magnus::{
     exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, IntoValue,
-    Module, Object, RHash, RString, Ruby, TryConvert, TypedData, Value,
+    Module, Object, RString, Ruby, TryConvert, TypedData, Value,
 };
 
 #[derive(TypedData, DataTypeFunctions)]

@@ -112,6 +112,7 @@ pub fn new_details(ruby: &Ruby) -> RHash {
 // only the domain-specific fields; :operation and :component are
 // filled automatically.
 
+#[allow(dead_code)]
 pub fn parse_error(msg: impl Into<String>, operation: &str, format: Option<&str>, offset: Option<usize>) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,
@@ -125,6 +126,7 @@ pub fn parse_error(msg: impl Into<String>, operation: &str, format: Option<&str>
     confium_error(msg, "ParseError", d)
 }
 
+#[allow(dead_code)]
 pub fn validation_error(msg: impl Into<String>, operation: &str, param: &str, expected: &str, actual: &str) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,
@@ -138,6 +140,7 @@ pub fn validation_error(msg: impl Into<String>, operation: &str, param: &str, ex
     confium_error(msg, "ValidationError", d)
 }
 
+#[allow(dead_code)]
 pub fn verification_error(msg: impl Into<String>, operation: &str, signer_index: Option<usize>, algorithm: Option<&str>) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,
@@ -150,6 +153,7 @@ pub fn verification_error(msg: impl Into<String>, operation: &str, signer_index:
     confium_error(msg, "VerificationError", d)
 }
 
+#[allow(dead_code)]
 pub fn crypto_error(msg: impl Into<String>, operation: &str, primitive: &str) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,
@@ -161,6 +165,7 @@ pub fn crypto_error(msg: impl Into<String>, operation: &str, primitive: &str) ->
     confium_error(msg, "CryptoError", d)
 }
 
+#[allow(dead_code)]
 pub fn threshold_error(msg: impl Into<String>, operation: &str, have: usize, need: usize) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,

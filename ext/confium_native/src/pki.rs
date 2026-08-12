@@ -205,7 +205,7 @@ impl SignedData {
     /// any standards-compliant CMS consumer.
     fn to_der(&self) -> Result<RString, Error> {
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
-        let der = encode_signed_data_der(&*self.inner.borrow())
+        let der = encode_signed_data_der(&self.inner.borrow())
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, &der))
     }

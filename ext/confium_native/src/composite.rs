@@ -12,7 +12,7 @@
 //!     with `#all_verified?` and `#per_component` accessors.
 
 use confium_composite::{CompositeSignature, ComponentSignature, VerificationResult};
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
 use magnus::{
     exception, function, method, prelude::*, scan_args,
     typed_data::Obj, DataTypeFunctions, Error, IntoValue,

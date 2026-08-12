@@ -12,7 +12,7 @@
 
 use confium_attributes::{evaluate, parse as dsl_parse, Predicate, SignerAttributes};
 use magnus::{
-    exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, Module,
+    exception, function, method, typed_data::Obj, DataTypeFunctions, Error, Module,
     Object, Ruby, TryConvert, TypedData, Value,
 };
 
