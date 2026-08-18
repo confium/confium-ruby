@@ -61,6 +61,9 @@ jobs:
     needs: [ build-and-test, lint ]
     runs-on: ubuntu-latest
     if: contains(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v7
 
@@ -80,7 +83,11 @@ jobs:
           bundle exec rake compile
           gem build confium.gemspec
 
+      # Exchange the job's OIDC token (id-token: write) for a short-lived
+      # RubyGems API key; publishes via the gem's trusted publisher
+      # (confium/confium-ruby @ test-and-release.yml) on rubygems.org.
+      - name: Configure RubyGems credentials (trusted publishing)
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
       - name: Publish to RubyGems
-        uses: cadwallion/publish-rubygems-action@master
-        env:
-          RUBYGEMS_API_KEY: ${{ secrets.CONFIUM_CI_RUBYGEMS_API_KEY }}
+        run: gem push confium-*.gem

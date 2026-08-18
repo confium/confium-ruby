@@ -74,6 +74,9 @@ jobs:
     name: Publish to RubyGems
     needs: [ build-native-gem, build-source-gem ]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -82,11 +85,15 @@ jobs:
       - name: List gems
         run: find gems/ -name '*.gem' -exec ls -la {} \;
 
+      # Exchange the job's OIDC token (id-token: write) for a short-lived
+      # RubyGems API key; publishes via the gem's trusted publisher
+      # (confium/confium-ruby @ release-native-gems.yml) on rubygems.org.
+      - name: Configure RubyGems credentials (trusted publishing)
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
       - name: Publish all gems
         run: |
           find gems/ -name '*.gem' -print0 | while IFS= read -r -d '' gem; do
             echo "Pushing $gem"
             gem push "$gem"
           done
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.CONFIUM_CI_RUBYGEMS_API_KEY }}
