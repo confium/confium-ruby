@@ -46,7 +46,9 @@ Confium
 │   └── Predicate                  # attribute-based threshold DSL
 ├── TC
 │   ├── FrostP256                  # P-256 Shamir + ECDSA
-│   └── ElGamalP256                # threshold ElGamal
+│   ├── ElGamalP256                # threshold ElGamal
+│   ├── Cmp20                      # CMP20 threshold ECDSA (in-process)
+│   └── Gg18                       # GG18 threshold ECDSA (in-process)
 ├── Identity
 │   ├── Actor                      # manufacturer, lab, director, etc.
 │   └── Backend                    # pluggable identity source
@@ -147,7 +149,9 @@ predicate.satisfied?(actors: directors, attributes: { region: ... })
 
 ## Confium::TC::FrostP256
 
-P-256 Shamir secret sharing + threshold ECDSA.
+P-256 Shamir secret sharing + single-party threshold ECDSA. Used for
+testing, demos, and as the underlying Shamir primitive for the other
+TC modules.
 
 ```ruby
 kp = Confium::TC::FrostP256.generate_keypair
@@ -155,6 +159,85 @@ shares = Confium::TC::FrostP256.split_secret(kp["private_key"], 3, 5)
 sig = Confium::TC::FrostP256.sign(kp["private_key"], "message")
 # sig["der"], sig["fixed"]
 ```
+
+## Confium::TC::ElGamalP256
+
+Threshold ElGamal KEM over P-256. Encapsulate produces a fresh shared
+secret against a public key; any T-of-N custodians can jointly recover
+it via partial_decrypt + aggregate_partials.
+
+```ruby
+enc = Confium::TC::ElGamalP256.encapsulate(public_key_bytes)
+enc["ciphertext"]   # => {"c1" => bytes, "c2" => bytes}
+enc["shared_secret"]# => 32 bytes
+
+partial = Confium::TC::ElGamalP256.partial_decrypt(party_idx, share_bytes, enc["ciphertext"])
+# partial["party_index"], partial["bytes"]
+
+recovered = Confium::TC::ElGamalP256.aggregate_partials([p1, p2], threshold, enc["ciphertext"])
+# recovered == enc["shared_secret"]
+```
+
+## Confium::TC::Cmp20 / Confium::TC::Gg18
+
+In-process threshold-ECDSA drivers. CMP20 (Canetti–Makriyannis–Peled
+2020) is preferred for new code; GG18 (Gennaro–Goldfeder 2018) is
+provided for interop with existing deployments.
+
+```ruby
+kg = Confium::TC::Cmp20.keygen(2, 3)
+kg["shares"]      # => Array<String> (3 share blobs, 71 bytes each)
+kg["public_key"]  # => String (33 bytes SEC1 compressed)
+
+sig = Confium::TC::Cmp20.sign(kg["shares"].first(2), 2, "message")
+# sig is a 64-byte binary string (r || s)
+
+# Verify externally with OpenSSL:
+require "openssl"
+asn1 = OpenSSL::ASN1::Sequence([
+  OpenSSL::ASN1::Sequence([
+    OpenSSL::ASN1::ObjectId("id-ecPublicKey"),
+    OpenSSL::ASN1::ObjectId("prime256v1"),
+  ]),
+  OpenSSL::ASN1::BitString(kg["public_key"]),
+])
+pkey = OpenSSL::PKey::EC.new(asn1.to_der)
+digest = OpenSSL::Digest::SHA256.digest("message")
+r = OpenSSL::BN.new(sig[0, 32], 2)
+s = OpenSSL::BN.new(sig[32, 32], 2)
+der = OpenSSL::ASN1::Sequence([
+  OpenSSL::ASN1::Integer(r),
+  OpenSSL::ASN1::Integer(s),
+]).to_der
+pkey.dsa_verify_asn1(digest, der)   # => true
+```
+
+Both modules share the same shape: `keygen(threshold, party_count)`
+returns `{"shares" => [...], "public_key" => bytes}`, and
+`sign(shares, threshold, message)` returns a 64-byte `(r, s)` signature.
+
+### Errors
+
+Failures raise `Confium::ThresholdError` (subclass of `Confium::Error`)
+with structured `details` accessors:
+
+```ruby
+begin
+  Confium::TC::Cmp20.sign(two_shares, 3, "msg")
+rescue Confium::ThresholdError => e
+  e.have_count   # => 2 (shares supplied)
+  e.need_count   # => 3 (threshold required)
+end
+```
+
+### Security caveat
+
+The in-process drivers wrap the upstream Rust crate's real Feldman VSS,
+Lagrange interpolation, and threshold-ECDSA combine. The MtA sub-round
+is a simplified in-clear stub (nonces are revealed). This is safe for
+one-shot signing and integration tests; production deployments require
+Paillier-based MtA, which is tracked separately under
+`confium-tc-cmp20/mta`.
 
 ## Confium::Config::Manifest
 

@@ -1,0 +1,120 @@
+---
+title: "CNML certificate profile"
+description: How the Confium Ruby gem supports OIML CNML (Certificate of Conformity) issuance flows — actor identity, manifest, signing quorum, transparency log.
+---
+
+# CNML certificate profile
+
+The Confium Ruby gem ships a CNML-style end-to-end integration test
+in `spec/confium/cnml_and_pq_spec.rb`. This page walks through the
+APIs that test exercises, in the order they're typically called.
+
+## What is CNML?
+
+CNML — *Certificate of Conformity for Measuring Instruments* — is the
+OIML document format for certifying that a measuring instrument
+(in weighing, length, volume, etc.) conforms to a published OIML
+Recommendation.
+
+Confium is "Mode 3 — Sovereign PKI" infrastructure; CNML is one
+reference deployment. The same APIs apply to any institutional PKI
+where multiple stakeholders (manufacturer, accredited lab, issuing
+authority, oversight body) must jointly sign off on a certificate
+without any one of them holding the full signing key.
+
+## End-to-end CNML flow
+
+### 1. Provision actors and manifest
+
+```ruby
+require "confium"
+
+manifest = Confium::Config::Manifest.from_file("config/cnml.toml")
+manifest.signers       # => Array<Hash> with one entry per signer
+manifest.quorum        # => { t: 3, n: 5 } — 3 of 5 must sign
+manifest.policy        # => Confium::Policy with algorithm allow-list
+```
+
+The TOML format is documented in the
+[`Confium::Config::Manifest` API reference](./api-reference.mdx#confium-config-manifest).
+
+### 2. Build the certificate body
+
+```ruby
+subject = Confium::PKI::Certificate.from_pem(File.read("certificates/subject.pem"))
+subject.subject_cn          # => "Acme Weighing Scale Model X-100"
+subject.fingerprint_sha256  # => "..."
+```
+
+### 3. Assemble the CMS SignedData
+
+Each signer contributes a signature over a hash of the certificate
+body. The signing happens server-side via the threshold-ECDSA
+machinery (`Confium::TC::Cmp20` or `Confium::TC::Gg18`):
+
+```ruby
+kg = Confium::TC::Cmp20.keygen(manifest.quorum[:n], manifest.quorum[:n])
+quorum_shares = kg["shares"].first(manifest.quorum[:t])
+
+# Each signer runs this independently:
+signature = Confium::TC::Cmp20.sign(quorum_shares, manifest.quorum[:t], subject.to_der)
+```
+
+The signatures are then wrapped into a CMS SignedData envelope using
+the PKI surface (see the [CMS docs](./api-reference.mdx#confium-pki-cms-signeddata)).
+
+### 4. Anchor to the transparency log
+
+Every issued CNML certificate must be appended to a public
+transparency log so third parties can verify they have the complete
+set of issued certificates:
+
+```ruby
+tree = Confium::Transparency::MerkleTree.new
+seq = tree.append(
+  artifact_type: :certificate_issuance,
+  artifact_hash: subject.fingerprint_sha256_bytes,
+)
+```
+
+### 5. Verify (browser-side, optionally)
+
+A browser holding only the CA's public key verifies the issued
+certificate via `@confium/confium-wasm` — see the
+[WASM binding guide](https://www.confium.org/bindings/wasm.mdx).
+
+## Audit log
+
+Every CNML signing ceremony produces audit records. Configure a sink:
+
+```ruby
+require "confium/audit"
+
+Confium::Audit.sink = Confium::Audit::FileSink.new("/var/log/confium/audit.log")
+
+# The signing flow above fires audit records automatically when run
+# through the high-level helpers. Manual recording:
+Confium::Audit.record(
+  "cnml_signing_ceremony",
+  payload_hash: subject.fingerprint_sha256,
+  result: "success",
+  actor: "BIPM-Director",
+  algorithm: "CMP20-ECDSA-P256",
+  error: nil,
+)
+```
+
+## Policy enforcement
+
+```ruby
+Confium::Policy.allowed_algorithms = ["CMP20-ECDSA-P256", "GG18-ECDSA-P256"]
+Confium::Policy.fips_mode = false  # CNML doesn't require FIPS
+```
+
+See [the policy page](./policy.mdx) for the full policy surface.
+
+## See also
+
+- [API reference](./api-reference.mdx) — every public class.
+- [CMP20 / GG18 API](./api-reference.mdx#confium-tc-cmp20-confium-tc-gg18) — the threshold-ECDSA surface.
+- [Audit sink hierarchy](./api-reference.mdx#confium-audit) — compliance records.

@@ -1,0 +1,66 @@
+---
+title: "Examples walkthrough"
+description: Every runnable example in the gem, what it demonstrates, and how to extend it.
+---
+
+# Examples walkthrough
+
+The gem ships a `examples/` directory with one self-contained Ruby
+script per concept. Each runs standalone (`ruby examples/X.rb`) and
+prints a narrative to stdout. This page is the orientation index.
+
+## Installed
+
+| File | What it demonstrates |
+|---|---|
+| [`threshold_signing.rb`](https://github.com/confium/confium-ruby/blob/main/examples/threshold_signing.rb) | Shamir-split a P-256 secret, recover from any T, sign with the recovered key. Uses `Confium::TC::FrostP256`. |
+| [`threshold_cmp20.rb`](https://github.com/confium/confium-ruby/blob/main/examples/threshold_cmp20.rb) | Full CMP20 threshold-ECDSA ceremony: DKG, threshold sign, OpenSSL verify. Uses `Confium::TC::Cmp20`. |
+| [`composite_verify.rb`](https://github.com/confium/confium-ruby/blob/main/examples/composite_verify.rb) | Composite multi-alg signature verification. |
+| [`hello_cert.rb`](https://github.com/confium/confium-ruby/blob/main/examples/hello_cert.rb) | Parse an X.509 DER cert, inspect fields, check validity window. |
+| [`hello_errors.rb`](https://github.com/confium/confium-ruby/blob/main/examples/hello_errors.rb) | Typed-error hierarchy: rescue specific subclasses. |
+| [`hello_manifest.rb`](https://github.com/confium/confium-ruby/blob/main/examples/hello_manifest.rb) | Load a deployment manifest from TOML. |
+| [`hello_composite.rb`](https://github.com/confium/confium-ruby/blob/main/examples/hello_composite.rb) | Build + verify a composite signature. |
+| [`hello_policy.rb`](https://github.com/confium/confium-ruby/blob/main/examples/hello_policy.rb) | Jurisdictional / FIPS policy configuration. |
+| [`transparency_anchor.rb`](https://github.com/confium/confium-ruby/blob/main/examples/transparency_anchor.rb) | Append to a Merkle tree, build inclusion proof, verify it. |
+| [`verifier_sinatra.rb`](https://github.com/confium/confium-ruby/blob/main/examples/verifier_sinatra.rb) | Full Sinatra HTTP verifier server (composite + inclusion). |
+
+## Running them
+
+```sh
+git clone https://github.com/confium/confium-ruby.git
+cd confium-ruby
+bundle install
+bundle exec rake compile
+
+bundle exec ruby examples/threshold_cmp20.rb
+```
+
+Each example exits 0 on success, non-zero on failure. None of them
+require network access.
+
+## Extending them
+
+These are starting points. For a real deployment, you'll typically:
+
+1. **Replace the in-process DKG** with a coordinator-driven multi-party
+   session (see [the in-process driver docs](https://www.confium.org/crates/tc-inprocess.mdx)).
+2. **Swap the FileSink** for a real audit sink (HTTP, syslog, Kafka) —
+   see [`lib/confium/audit.rb`](https://github.com/confium/confium-ruby/blob/main/lib/confium/audit.rb).
+3. **Add TLS** to the Sinatra verifier or use Puma in production.
+4. **Wire the transparency log** to your database — see
+   [`Confium::Transparency::MerkleTree`](./api-reference.mdx#confium-transparency-merkletree).
+
+## Contributing
+
+If you have a useful example that demonstrates a Confium pattern,
+open a PR against `examples/`. Keep it:
+
+- **Self-contained** — one file, no shared dependencies.
+- **Prints a narrative** — every step logs what it's doing and why.
+- **Exits 0 on success** — so CI can run them.
+
+## See also
+
+- [API reference](./api-reference.mdx)
+- [Installation](./installation.mdx)
+- [Error handling](./error-handling.mdx)
