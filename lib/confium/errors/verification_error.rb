@@ -4,9 +4,10 @@
 class Confium::VerificationError < Confium::Error
   attr_reader :signer_index, :algorithm
 
-  def initialize(message = nil, signer_index: nil, algorithm: nil, **rest)
-    @signer_index = signer_index
-    @algorithm = algorithm
-    super(message, details: { signer_index: signer_index, algorithm: algorithm, **rest })
+  def initialize(message = nil, details_hash = nil, **kwargs)
+    message, kwargs = Confium::Errors::Coerce.args(message, details_hash, kwargs)
+    @signer_index = kwargs.delete(:signer_index)
+    @algorithm = kwargs.delete(:algorithm)
+    super(message, details: { signer_index: @signer_index, algorithm: @algorithm, **kwargs })
   end
 end
