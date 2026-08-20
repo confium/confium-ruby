@@ -164,8 +164,27 @@ fn sign_ed25519(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash
     let mut pk_arr = [0u8; 32];
     pk_arr.copy_from_slice(&pk_bytes);
     let signing = SigningKey::from_bytes(&pk_arr);
-    let component = confium_composite::build_ed25519_component(&signing, &msg)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let component = match confium_composite::build_ed25519_component(&signing, &msg) {
+        Ok(c) => c,
+        Err(e) => {
+            crate::audit::fire_event(
+                "composite_sign_ed25519",
+                "failure",
+                Some("Ed25519"),
+                Some(&msg),
+                Some(&e.to_string()),
+            );
+            return Err(Error::new(exception::runtime_error(), e.to_string()));
+        }
+    };
+
+    crate::audit::fire_event(
+        "composite_sign_ed25519",
+        "success",
+        Some("Ed25519"),
+        Some(&msg),
+        None,
+    );
 
     let result = ruby.hash_new();
     result.aset("algorithm", component.algorithm)?;
@@ -195,12 +214,31 @@ fn sign_p256(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash, E
     use p256::ecdsa::{Signature, SigningKey, signature::Signer};
     let signing = SigningKey::from_bytes(&arr.into())
         .map_err(|e| Error::new(exception::arg_error(), format!("invalid P-256 private key: {e}")))?;
-    let sig: Signature = signing.try_sign(msg.as_slice()).map_err(|e| {
-        Error::new(exception::runtime_error(), format!("sign error: {e}"))
-    })?;
+    let sig: Signature = match signing.try_sign(msg.as_slice()) {
+        Ok(s) => s,
+        Err(e) => {
+            crate::audit::fire_event(
+                "composite_sign_p256",
+                "failure",
+                Some("ECDSA-P256"),
+                Some(&msg),
+                Some(&format!("sign error: {e}")),
+            );
+            return Err(Error::new(exception::runtime_error(), format!("sign error: {e}")));
+        }
+    };
     let verifying = signing.verifying_key();
     let verifying_bytes: Vec<u8> = verifying.to_sec1_bytes().to_vec();
     let sig_bytes: Vec<u8> = sig.to_der().to_bytes().to_vec();
+
+    crate::audit::fire_event(
+        "composite_sign_p256",
+        "success",
+        Some("ECDSA-P256"),
+        Some(&msg),
+        None,
+    );
+
     let result = ruby.hash_new();
     result.aset("algorithm", "ECDSA-P256")?;
     result.aset("public_key", bytes_to_rstring(ruby, &verifying_bytes))?;

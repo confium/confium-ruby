@@ -65,38 +65,60 @@ pub fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> RString {
 /// Construct a typed `Confium::*Error` instance with the given message
 /// and details Hash, ready to be raised.
 ///
-/// `subclass` is the Ruby class name under `Confium::` (e.g. "ParseError").
-/// If the subclass is not yet loaded (autoload miss), falls back to
-/// `Confium::Error`. Callers should always use this helper rather than
-/// `Error::new(exception::runtime_error(), ...)` so the typed hierarchy
-/// stays meaningful.
+/// `subclass` is the Ruby class name under `Confium::` (e.g. "ThresholdError").
+/// Falls back to `Confium::Error` if the subclass can't be resolved, then
+/// to Ruby's `RuntimeError` if even the base class is unavailable.
+///
+/// ## Design
+///
+/// Each typed error class accepts `(message, details_hash)` positionally,
+/// where `details_hash` is a plain Ruby Hash carrying the structured
+/// fields (`have_count`, `need_count`, `algorithm`, etc.). The class's
+/// initializer extracts its specific keys from the Hash and assigns them
+/// to ivars exposed via `attr_reader`. This pattern survives Ruby 3's
+/// removal of automatic positional-Hash-to-kwargs conversion.
+///
+/// ## Autoload caveat
+///
+/// The Ruby side registers error subclasses via `autoload`. We resolve
+/// the constant by walking the path step by step (`Confium` →
+/// `ThresholdError`) rather than `Object.const_get("Confium::ThresholdError")`,
+/// because the latter does not trigger autoload.
 pub fn confium_error(message: impl Into<String>, subclass: &str, details: RHash) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,
         Err(_) => return Error::new(exception::runtime_error(), message.into()),
     };
-    let class_name = format!("Confium::{subclass}");
-    let class = match ruby
-        .class_object()
-        .const_get::<_, magnus::RClass>(class_name.as_str())
-    {
-        Ok(c) => c,
-        Err(_) => match ruby
-            .class_object()
-            .const_get::<_, magnus::RClass>("Confium::Error")
-        {
-            Ok(c) => c,
-            Err(_) => {
-                return Error::new(exception::runtime_error(), message.into());
-            }
-        },
-    };
+    let class = resolve_confium_subclass(&ruby, subclass);
     let msg: String = message.into();
-    let instance: magnus::Exception = match class.funcall("new", (msg.as_str(), details)) {
-        Ok(i) => i,
-        Err(_) => return Error::new(exception::runtime_error(), msg),
+    // Construct via `class.new(msg, details_hash)`. The typed subclasses
+    // route the Hash through their initializer, which assigns ivars
+    // exposed via attr_reader (have_count, need_count, etc.). If the
+    // call fails for any reason we fall back to bare RuntimeError with
+    // the original message so the binding stays usable.
+    match class.funcall::<_, _, magnus::Exception>("new", (msg.as_str(), details)) {
+        Ok(exc) => Error::from(exc),
+        Err(_) => Error::new(exception::runtime_error(), msg),
+    }
+}
+
+/// Resolve a `Confium::*Error` subclass by short name (e.g. "ThresholdError").
+/// Walks the constant path segment by segment so autoload triggers
+/// correctly. Falls back to `Confium::Error` if the named subclass is
+/// missing, then to Ruby's `RuntimeError` if even the base class is
+/// unavailable.
+fn resolve_confium_subclass(ruby: &Ruby, subclass: &str) -> magnus::ExceptionClass {
+    let confium_mod: magnus::RModule = match ruby
+        .class_object()
+        .const_get::<_, magnus::RModule>("Confium")
+    {
+        Ok(m) => m,
+        Err(_) => return exception::runtime_error(),
     };
-    Error::from(instance)
+    confium_mod
+        .const_get::<_, magnus::ExceptionClass>(subclass)
+        .or_else(|_| confium_mod.const_get::<_, magnus::ExceptionClass>("Error"))
+        .unwrap_or_else(|_| exception::runtime_error())
 }
 
 /// Build an empty `RHash` for the `details:` argument to a Confium
