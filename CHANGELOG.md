@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.3.0] — 2026-08-04
+
+Synced with Confium Rust workspace v0.3.0 (product restructuring).
+
+### Changed
+
+- **Rust edition bumped to 2024** (was 2021). Requires Rust 1.85+.
+- **All confium dependencies now from crates.io** (removed path deps for
+  `confium-tc-cmp20` and `confium-tc-gg18`). `gem install confium` now works
+  without a local workspace checkout.
+- **Version synced to 0.3.0** (was 0.1.0) to match the workspace version.
+
+### Added
+
+- Dependencies on newly published shared crypto crates:
+  `confium-tc-core`, `confium-crypto-vss`, `confium-crypto-zk`,
+  `confium-privacy`, `confium-observability`.
+
+### Migration from 0.1.0
+
+- Update `Gemfile`: `gem "confium", "~> 0.3"`
+- Ensure Rust 1.85+ is installed (`rustup update stable`)
+- Run `bundle exec rake compile` to rebuild the native extension
+
 ## [0.1.0] — 2026-07-27
 
 First public release of the Ruby bindings. Replaces the previous FFI-based

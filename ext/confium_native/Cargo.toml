@@ -6,9 +6,9 @@
 
 [package]
 name = "confium_native"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.75"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
 publish = false
 
 [lib]
@@ -17,24 +17,31 @@ crate-type = ["cdylib"]
 build = "build.rs"
 
 [dependencies]
-# rb-sys for Ruby C API access. `global-allocator` lets the extension own its
-# own allocator rather than sharing Ruby's, which avoids a class of GC bugs.
+# rb-sys for Ruby C API access.
 rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 
 # magnus for idiomatic Ruby <-> Rust bindings.
 magnus = { version = "0.8", features = ["bytes"] }
 
-# Confium crates from crates.io. Keep these in sync with the workspace
-# version of the confium-rs repo so a `bundle exec rake compile` produces
-# an extension whose behavior matches the Rust library of the same version.
+# Confium crates — all from crates.io so gem install works without workspace checkout.
 confium-core = "0.2"
 confium-transparency = "0.4"
 confium-composite = "0.3.1"
 confium-attributes = "0.3.1"
 confium-pki = "0.3.1"
 confium-deployment = "0.3"
+confium-tc = "0.3.1"
 confium-tc-frost-p256 = "0.3"
 confium-tc-elgamal-p256 = "0.3"
+confium-tc-cmp20 = "0.3.1"
+confium-tc-gg18 = "0.3.1"
+
+# Newly published shared crypto crates (confium product restructuring).
+confium-tc-core = "0.3"
+confium-crypto-vss = "0.3"
+confium-crypto-zk = "0.3"
+confium-privacy = "0.3"
+confium-observability = "0.3"
 
 # P-256 scalar/point types used by the TC surface.
 p256 = { version = "0.13", features = ["ecdsa"] }
@@ -45,11 +52,11 @@ rand_core = { version = "0.6", default-features = false, features = ["getrandom"
 sha2 = "0.10"
 subtle = "2"
 chrono = "0.4"
+hex = "0.4"
 serde_json = "1"
 
 # RNP (OpenPGP, RFC 9580) — hard-bundled with vendored feature so
 # librnp is compiled from source via rnp-src. No system librnp needed.
-# Works on Linux, macOS, and Windows (MSYS2/MinGW toolchain).
 rnp = { package = "rnp-rs", version = "0.1.10", features = ["vendored"] }
 
 [profile.release]

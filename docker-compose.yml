@@ -1,0 +1,46 @@
+# docker-compose.yml — one-command bring-up of the Confium verifier.
+#
+# Usage:
+#   docker compose up verifier     # Sinatra verifier on :4567
+#   curl http://localhost:4567/health
+#
+# The verifier image is built from the Dockerfile in this directory.
+# Override the port with `PORT=8080 docker compose up`.
+
+services:
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: confium/signer:latest
+    command: ["ruby", "/app/examples/verifier_sinatra.rb", "-p", "4567", "-s", "puma"]
+    ports:
+      - "${PORT:-4567}:4567"
+    environment:
+      RACK_ENV: production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4567/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Companion service that runs the CLI as a one-shot. Useful for
+  # generating key shares in CI without installing Ruby/Rust locally:
+  #
+  #   docker compose run --rm cli tc keygen --scheme cmp20 \
+  #     --threshold 2 --party-count 3 \
+  #     --out /work/shares.json
+  #
+  # Bind-mount your working directory to /work to persist output.
+  cli:
+    image: confium/signer:latest
+    entrypoint: ["ruby", "-I/app/lib", "-rconfium", "-e"]
+    # Default: print version. Override via `docker compose run --rm cli
+    # 'puts Confium::VERSION'`.
+    command: ["puts 'confium/signer CLI image'"]
+    volumes:
+      - ./:/work
+    profiles:
+      - cli   # not started by default; opt in via `--profile cli`
