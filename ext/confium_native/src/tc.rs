@@ -17,8 +17,12 @@ use confium_tc_frost_p256::{
     sign_message,
     Keypair,
 };
-use magnus::{exception, function, method, DataTypeFunctions, Error, Module, RHash, Ruby, TryConvert, TypedData, Value};
+use confium_tc_cmp20::inprocess as cmp20_inprocess;
+use confium_tc_gg18::inprocess as gg18_inprocess;
+use magnus::{exception, function, method, prelude::*, DataTypeFunctions, Error, Module, Object, RHash, Ruby, TryConvert, TypedData, Value};
 use p256::Scalar;
+
+use crate::util::threshold_error;
 
 #[derive(TypedData, DataTypeFunctions)]
 #[magnus(class = "Confium::TC::FrostP256::Share", size)]
@@ -123,8 +127,26 @@ fn sign(private_key_bytes: Value, message: Value) -> Result<RHash, Error> {
         secret_scalar: secret,
         public_key: public_key_for(&secret),
     };
-    let signed = sign_message(&kp, &msg)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let signed = match sign_message(&kp, &msg) {
+        Ok(s) => s,
+        Err(e) => {
+            crate::audit::fire_event(
+                "tc_frost_p256_sign",
+                "failure",
+                Some("FROST-P256"),
+                Some(&msg),
+                Some(&e.to_string()),
+            );
+            return Err(Error::new(exception::runtime_error(), e.to_string()));
+        }
+    };
+    crate::audit::fire_event(
+        "tc_frost_p256_sign",
+        "success",
+        Some("FROST-P256"),
+        Some(&msg),
+        None,
+    );
     let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
     let result = ruby.hash_new();
     result.aset("der", bytes_to_rstring(&ruby, &signed.der_bytes))?;
@@ -238,8 +260,161 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     elgamal.define_module_function("partial_decrypt", function!(elgamal_partial_decrypt, 3))?;
     elgamal.define_module_function("aggregate_partials", function!(elgamal_aggregate, 3))?;
 
+    // CMP20 / GG18 in-process threshold-ECDSA drivers.
+    let cmp20 = tc.define_module("Cmp20")?;
+    cmp20.define_module_function("keygen", function!(cmp20_keygen, 2))?;
+    cmp20.define_module_function("sign", function!(cmp20_sign, 3))?;
+
+    let gg18 = tc.define_module("Gg18")?;
+    gg18.define_module_function("keygen", function!(gg18_keygen, 2))?;
+    gg18.define_module_function("sign", function!(gg18_sign, 3))?;
+
     // Touch Scalar to silence unused-import warnings if any.
     let _: Option<Scalar> = None;
 
     Ok(())
+}
+
+// ===== CMP20 in-process keygen / sign =====
+
+fn cmp20_keygen(ruby: &Ruby, threshold: u32, party_count: u32) -> Result<RHash, Error> {
+    let kg = match cmp20_inprocess::keygen(threshold, party_count as usize) {
+        Ok(k) => k,
+        Err(e) => {
+            let msg = e.to_string();
+            crate::audit::fire_event(
+                "tc_cmp20_keygen",
+                "failure",
+                Some("CMP20-ECDSA-P256"),
+                None,
+                Some(&msg),
+            );
+            return Err(threshold_error(msg, "Cmp20.keygen", party_count as usize, threshold as usize));
+        }
+    };
+    crate::audit::fire_event(
+        "tc_cmp20_keygen",
+        "success",
+        Some("CMP20-ECDSA-P256"),
+        None,
+        None,
+    );
+    let result = ruby.hash_new();
+    let shares_arr = ruby.ary_new_capa(kg.shares.len());
+    for s in kg.shares {
+        shares_arr.push(bytes_to_rstring(ruby, &s))?;
+    }
+    result.aset("shares", shares_arr)?;
+    result.aset("public_key", bytes_to_rstring(ruby, &kg.public_key))?;
+    Ok(result)
+}
+
+fn cmp20_sign(
+    ruby: &Ruby,
+    shares_value: Value,
+    threshold: u32,
+    message_value: Value,
+) -> Result<magnus::RString, Error> {
+    let arr = magnus::RArray::try_convert(shares_value)?;
+    let mut share_bytes: Vec<Vec<u8>> = Vec::with_capacity(arr.len());
+    for v in arr.each() {
+        let s = bytes_from_value(v?)?;
+        share_bytes.push(s);
+    }
+    let supplied = share_bytes.len();
+    let msg = bytes_from_value(message_value)?;
+    let sig = match cmp20_inprocess::sign(&share_bytes, threshold, &msg) {
+        Ok(s) => s,
+        Err(e) => {
+            let human = e.to_string();
+            crate::audit::fire_event(
+                "tc_cmp20_sign",
+                "failure",
+                Some("CMP20-ECDSA-P256"),
+                Some(&msg),
+                Some(&human),
+            );
+            return Err(threshold_error(human, "Cmp20.sign", supplied, threshold as usize));
+        }
+    };
+    crate::audit::fire_event(
+        "tc_cmp20_sign",
+        "success",
+        Some("CMP20-ECDSA-P256"),
+        Some(&msg),
+        None,
+    );
+    Ok(bytes_to_rstring(ruby, &sig))
+}
+
+// ===== GG18 in-process keygen / sign =====
+
+fn gg18_keygen(ruby: &Ruby, threshold: u32, party_count: u32) -> Result<RHash, Error> {
+    let kg = match gg18_inprocess::keygen(threshold, party_count as usize) {
+        Ok(k) => k,
+        Err(e) => {
+            let msg = e.to_string();
+            crate::audit::fire_event(
+                "tc_gg18_keygen",
+                "failure",
+                Some("GG18-ECDSA-P256"),
+                None,
+                Some(&msg),
+            );
+            return Err(threshold_error(msg, "Gg18.keygen", party_count as usize, threshold as usize));
+        }
+    };
+    crate::audit::fire_event(
+        "tc_gg18_keygen",
+        "success",
+        Some("GG18-ECDSA-P256"),
+        None,
+        None,
+    );
+    let result = ruby.hash_new();
+    let shares_arr = ruby.ary_new_capa(kg.shares.len());
+    for s in kg.shares {
+        shares_arr.push(bytes_to_rstring(ruby, &s))?;
+    }
+    result.aset("shares", shares_arr)?;
+    result.aset("public_key", bytes_to_rstring(ruby, &kg.public_key))?;
+    Ok(result)
+}
+
+fn gg18_sign(
+    ruby: &Ruby,
+    shares_value: Value,
+    threshold: u32,
+    message_value: Value,
+) -> Result<magnus::RString, Error> {
+    let arr = magnus::RArray::try_convert(shares_value)?;
+    let mut share_bytes: Vec<Vec<u8>> = Vec::with_capacity(arr.len());
+    for v in arr.each() {
+        let s = bytes_from_value(v?)?;
+        share_bytes.push(s);
+    }
+    let supplied = share_bytes.len();
+    let msg = bytes_from_value(message_value)?;
+    let sig = match gg18_inprocess::sign(&share_bytes, threshold, &msg) {
+        Ok(s) => s,
+        Err(e) => {
+            let human = e.to_string();
+            crate::audit::fire_event(
+                "tc_gg18_sign",
+                "failure",
+                Some("GG18-ECDSA-P256"),
+                Some(&msg),
+                Some(&human),
+            );
+            return Err(threshold_error(human, "Gg18.sign", supplied, threshold as usize));
+        }
+    };
+    crate::audit::fire_event(
+        "tc_gg18_sign",
+        "success",
+        Some("GG18-ECDSA-P256"),
+        Some(&msg),
+        None,
+    );
+    Ok(bytes_to_rstring(ruby, &sig))
 }
