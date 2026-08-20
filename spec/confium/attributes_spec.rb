@@ -14,6 +14,20 @@ RSpec.describe Confium::Attributes do
         described_class.parse(%q{not_a_function(})
       }.to raise_error(RuntimeError)
     end
+
+    it "accepts shallow nesting (32 levels or below)" do
+      # 30 levels of `not(...)` wraps `any("x")`. Within the
+      # binding's depth budget.
+      expr = "any(\"x\")"
+      30.times { expr = "not(#{expr})" }
+      expect { described_class.parse(expr) }.not_to raise_error
+    end
+
+    it "rejects deep nesting (over MAX_DSL_DEPTH = 32)" do
+      expr = "any(\"x\")"
+      100.times { expr = "not(#{expr})" }
+      expect { described_class.parse(expr) }.to raise_error(RuntimeError, /recursion depth/i)
+    end
   end
 
   describe Confium::Attributes::Signer do

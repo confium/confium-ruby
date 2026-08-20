@@ -46,3 +46,14 @@ module Confium
   autoload :Policy,               "confium/policy"
   autoload :PKI,                  "confium/pki"
 end
+
+# Eager-load the Audit Ruby companion. The native extension registers
+# `Confium::Audit` as a Ruby module with the `record`/`sink=`/`sink`
+# methods; the companion file defines the Sink class hierarchy on top
+# of that module.
+require_relative "confium/audit"
+
+# Eager-load the TC ShareFile Ruby companion. The native extension
+# defines `Confium::TC` as a Ruby module; this file adds the
+# `ShareFile` class for filesystem-backed share persistence.
+require_relative "confium/tc/share_file"
