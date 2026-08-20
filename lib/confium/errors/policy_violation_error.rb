@@ -4,9 +4,10 @@
 class Confium::PolicyViolationError < Confium::Error
   attr_reader :policy, :violation
 
-  def initialize(message = nil, policy:, violation:, **rest)
-    @policy = policy
-    @violation = violation
-    super(message, details: { policy: policy, violation: violation, **rest })
+  def initialize(message = nil, details_hash = nil, **kwargs)
+    message, kwargs = Confium::Errors::Coerce.args(message, details_hash, kwargs)
+    @policy = kwargs.delete(:policy)
+    @violation = kwargs.delete(:violation)
+    super(message, details: { policy: @policy, violation: @violation, **kwargs })
   end
 end

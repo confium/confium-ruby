@@ -4,8 +4,9 @@
 class Confium::UnresolvedSignerError < Confium::Error
   attr_reader :signer_index
 
-  def initialize(message = nil, signer_index:, **rest)
-    @signer_index = signer_index
-    super(message, details: { signer_index: signer_index, **rest })
+  def initialize(message = nil, details_hash = nil, **kwargs)
+    message, kwargs = Confium::Errors::Coerce.args(message, details_hash, kwargs)
+    @signer_index = kwargs.delete(:signer_index)
+    super(message, details: { signer_index: @signer_index, **kwargs })
   end
 end

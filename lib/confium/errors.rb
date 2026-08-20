@@ -2,6 +2,13 @@
 
 # Root of all Confium errors. Loaded by every subclass file.
 module Confium
+  module Errors
+    # Marker namespace for error-hierarchy internals. `Coerce` lives
+    # under here so subclasses can reference it as
+    # `Confium::Errors::Coerce.args(...)` without polluting the
+    # top-level `Confium` namespace.
+  end
+
   class Error < StandardError
     attr_reader :details
 
@@ -15,3 +22,5 @@ module Confium
     end
   end
 end
+
+require_relative "errors/coerce"
