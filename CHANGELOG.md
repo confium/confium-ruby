@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.1] — 2026-08-21
+
+Native platform gems (linux x86_64/aarch64, macOS x86_64/arm64,
+Windows x64-mingw-ucrt) ship alongside the source gem — `gem install`
+no longer needs a Rust toolchain on those platforms.
+
+### Added
+
+- ERS archival binding (`Confium::EvidenceRecord`, RFC 4998) and the
+  `CONFIUM_LIB` explicit dylib path override.
+- Audit log bindings with sign-triggered autofire and an Enumerable
+  `MemorySink`.
+- Typed error hierarchy across all subsystems with native-error
+  coercion.
+- CMP20/GG18 in-process threshold ECDSA (`Confium::TC::Cmp20`,
+  `Confium::TC::Gg18`) and TC share files with the documented
+  envelope shape.
+- Twenty worked examples plus the examples and CNML-profile guides.
+
+### Fixed
+
+- The PKI CSR spec no longer shells out to the openssl CLI (it
+  generated its fixture with a key file that was never created).
+- CI: first `.rubocop.yml`, Ruby-3.1-compatible lockfile, and a test
+  matrix matching the shipped platforms.
+
 ## [0.3.0] — 2026-08-04
 
 Synced with Confium Rust workspace v0.3.0 (product restructuring).
