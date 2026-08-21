@@ -1,17 +1,21 @@
 name: release-native-gems
 
-# Cross-platform native gem builder.
+# Pre-compiled native gem builder.
 #
-# Triggered on tag push (v*.*.*) — cross-compiles pre-compiled native
-# gems for Linux (x86_64/aarch64) and macOS (x86_64/arm64) inside the
-# rbsys/<platform> Docker images, then publishes each to RubyGems.
+# Triggered on tag push (v*.*.*) — builds platform gems for Linux
+# (x86_64/aarch64) and macOS (x86_64/arm64) on runners whose
+# architecture IS the target, then publishes each to RubyGems.
+#
+# Cross-compilation via rake-compiler-dock is not possible here: the
+# dock images are Ubuntu 20.04 (gcc 9.4) and the vendored RNP stack
+# needs Botan 3.12, which requires gcc 11+.
 #
 # The source gem is owned by test-and-release.yml; this workflow must
 # never push a ruby-platform gem — a source gem pushed here would burn
 # the version slot (RubyGems blocks re-pushing any version).
 #
-# Local dry-run (build only, no publish):
-#   bundle exec rake native_gem:x86_64-linux
+# Local dry-run (build + package only, never publishes):
+#   bundle exec rake compile && bundle exec rake native_gem:package[arm64-darwin]
 
 on:
   push:
@@ -23,46 +27,96 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-native-gem:
+  build:
     name: native gem — ${{ matrix.platform }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        # Windows is absent deliberately: the vendored RNP build
-        # (rnp-src → json-c, botan) has no MSVC/mingw cross story, so
-        # the gem ships no Windows natives (see rakelib/native_gem.rake).
-        platform:
-          - x86_64-linux
-          - aarch64-linux
-          - x86_64-darwin
-          - arm64-darwin
+        include:
+          - platform: x86_64-linux
+            runner: ubuntu-latest
+          - platform: aarch64-linux
+            runner: ubuntu-24.04-arm
+          - platform: x86_64-darwin
+            runner: macos-13
+          # Windows is absent deliberately: the vendored RNP build
+          # (rnp-src → json-c, botan) has no MSVC/mingw story, so the
+          # gem ships no Windows natives (see rakelib/native_gem.rake).
+          - platform: arm64-darwin
+            runner: macos-15
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          ruby-version: '3.3'
+          profile: minimal
 
-      # rb-sys-dock builds inside the rbsys/<platform> image
-      # (rake-compiler-dock mri image layered with a Rust toolchain
-      # and cross C/C++ compilers) and runs `rake native:<platform>
-      # gem` there, producing pkg/confium-<version>-<platform>.gem.
-      - name: Cross-compile gem for ${{ matrix.platform }}
-        uses: oxidize-rb/actions/cross-gem@v1
+      # Oldest supported Ruby: the extension loads on newer Rubies
+      # via the stable C extension ABI (guarded by install-check).
+      - uses: ruby/setup-ruby@v1
         with:
-          platform: ${{ matrix.platform }}
+          ruby-version: '3.1'
+          bundler-cache: true
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
+      - name: Compile extension and package gem
+        run: |
+          bundle exec rake compile
+          bundle exec rake native_gem:package[${{ matrix.platform }}]
+
+      - uses: actions/upload-artifact@v7
         with:
           name: native-gem-${{ matrix.platform }}
           path: pkg/*-${{ matrix.platform }}.gem
 
+  install-check:
+    # The platform gems are compiled against Ruby 3.1; prove they
+    # install and load on the oldest AND newest supported Rubies.
+    name: install check — ${{ matrix.platform }} / Ruby ${{ matrix.ruby }}
+    needs: build
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: [ '3.1', '3.4' ]
+        include:
+          - platform: x86_64-linux
+            runner: ubuntu-latest
+            ruby: '3.1'
+          - platform: x86_64-linux
+            runner: ubuntu-latest
+            ruby: '3.4'
+          - platform: arm64-darwin
+            runner: macos-latest
+            ruby: '3.1'
+          - platform: arm64-darwin
+            runner: macos-latest
+            ruby: '3.4'
+    steps:
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-gem-${{ matrix.platform }}
+          path: gems/
+
+      - name: Install and exercise the pre-built gem
+        run: |
+          set -eu
+          gem install --local "gems/confium-*-${{ matrix.platform }}.gem" --no-document
+          ruby -r confium -e '
+            kp = Confium::Composite.generate_ed25519_keypair
+            component = Confium::Composite.sign_ed25519(kp["private_key"], "smoke")
+            result = Confium::Composite::Signature.new([component]).verify("smoke")
+            abort "signature verification failed" unless result.all_verified?
+            puts "composite sign/verify roundtrip OK on #{RUBY_VERSION} (${{ matrix.platform }})"
+          '
+
   publish:
     name: Publish to RubyGems
-    needs: [ build-native-gem ]
+    needs: [ build, install-check ]
     # Tags only — a manual workflow_dispatch must never push (a failed
     # push still burns the version slot for the platform).
     if: contains(github.ref, 'refs/tags/v')
@@ -75,6 +129,7 @@ jobs:
         with:
           path: gems/
           merge-multiple: true
+          pattern: native-gem-*
 
       - name: Verify artifacts
         run: |
