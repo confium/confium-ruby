@@ -1,51 +1,45 @@
 # frozen_string_literal: true
 
-# Cross-platform native gem build via rake-compiler-dock.
+# Cross-platform native gem builds via rb-sys-dock.
 #
-# Builds pre-compiled native gems for Linux (x86_64, aarch64), macOS
-# (x86_64, arm64), and Windows (x86_64-mingw32). Consumers can then
-# `gem install confium-0.1.0-x86_64-linux` without needing a Rust
-# toolchain locally.
+# rb-sys-dock runs the rbsys/<platform> Docker images (rake-compiler-
+# dock mri images layered with a Rust toolchain and cross C/C++
+# compilers) and executes `rake native:<platform> gem` inside them,
+# producing pkg/confium-<version>-<platform>.gem. CI drives the same
+# build through oxidize-rb/actions/cross-gem; these tasks exist for
+# local use and require Docker.
 #
 # Usage:
-#   bundle exec rake native_gem:all       # build all platforms
 #   bundle exec rake native_gem:x86_64-linux
+#   bundle exec rake native_gem:all
 #
-# This is a v0.2.0 release-engineering step. v0.1.0 ships as a source
-# gem that requires Rust at install time.
+# Windows targets are not built: the vendored RNP (json-c + botan)
+# C/C++ build has no MSVC/mingw cross story.
 
-require 'rake_compiler_dock'
+NATIVE_GEM_PLATFORMS = %w[
+  x86_64-linux
+  aarch64-linux
+  x86_64-darwin
+  arm64-darwin
+].freeze
 
 namespace :native_gem do
-  PLATFORMS = %w[
-    x86_64-linux
-    aarch64-linux
-    x86_64-darwin
-    arm64-darwin
-    x64-mingw-ucrt
-    x64-mingw32
-  ].freeze
-
   desc 'Build the source gem (no native binary)'
   task :source do
     sh 'gem build confium.gemspec'
   end
 
-  desc 'Build native gems for all platforms via rake-compiler-dock'
+  desc 'Build native gems for all platforms via rb-sys-dock'
   task :all do
-    PLATFORMS.each do |platform|
+    NATIVE_GEM_PLATFORMS.each do |platform|
       Rake::Task["native_gem:#{platform}"].invoke
     end
   end
 
-  PLATFORMS.each do |platform|
-    desc "Build the native gem for #{platform}"
+  NATIVE_GEM_PLATFORMS.each do |platform|
+    desc "Build the native gem for #{platform} via rb-sys-dock"
     task platform do
-      RakeCompilerDock.sh <<-SH, platform: platform
-        bundle install
-        bundle exec rake native:confium_native#{":#{platform}" unless platform == 'x64-mingw-ucrt'}
-        gem build confium.gemspec --output confium-#{platform}.gem
-      SH
+      sh 'bundle', 'exec', 'rb-sys-dock', '--platform', platform, '--build'
     end
   end
 end

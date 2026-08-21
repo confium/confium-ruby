@@ -1,10 +1,32 @@
 # Changelog
 
+## [0.3.2] — 2026-08-22
+
+Native platform gems (linux x86_64/aarch64, macOS x86_64/arm64) ship
+alongside the source gem — `gem install` no longer needs a Rust
+toolchain on those platforms.
+
+The 0.3.0/0.3.1 native-gem builds never actually produced platform
+gems: the cross-compile task targeted a nonexistent rake task inside
+a container whose shell swallowed the failure, and the fallback
+`gem build` stamped platform=ruby. RubyGems blocks re-pushing a
+version that ever existed, so the native gems first appear here.
+
+### Fixed
+
+- Native builds now run through `rb-sys-dock` (the rbsys/<platform>
+  images: rake-compiler-dock plus a Rust toolchain and cross C/C++
+  compilers), driven in CI by `oxidize-rb/actions/cross-gem`.
+- The release workflow no longer builds a source gem (that burned
+  the 0.3.1 version slots against test-and-release.yml's publish)
+  and refuses to push any gem stamped platform=ruby.
+- Windows remains unsupported: the vendored RNP (json-c + botan)
+  build has no MSVC/mingw cross story.
+
 ## [0.3.1] — 2026-08-21
 
-Native platform gems (linux x86_64/aarch64, macOS x86_64/arm64,
-Windows x64-mingw-ucrt) ship alongside the source gem — `gem install`
-no longer needs a Rust toolchain on those platforms.
+Shipped as a source gem only (the intended native platform gems
+failed to materialize; see 0.3.2).
 
 ### Added
 
