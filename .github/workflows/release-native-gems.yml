@@ -41,7 +41,7 @@ jobs:
           bundler-cache: true
 
       - name: Set up Docker (for rake-compiler-dock)
-        uses: docker/setup-buildx-action@v7
+        uses: docker/setup-buildx-action@v4
 
       - name: Build native gem for ${{ matrix.platform }}
         run: bundle exec rake native_gem:${{ matrix.platform }}
