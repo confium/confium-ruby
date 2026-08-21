@@ -48,7 +48,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'rb_sys', '~> 0.9.39'
 
   spec.add_development_dependency 'rake', '~> 13.0'
-  spec.add_development_dependency 'rake-compiler', '~> 1.2.0'
+  spec.add_development_dependency 'rake-compiler', '~> 1.3.0'
   spec.add_development_dependency 'rake-compiler-dock', '~> 1.3'
   spec.add_development_dependency 'rspec', '~> 3.0'
   spec.add_development_dependency 'rubocop', '~> 1.0'

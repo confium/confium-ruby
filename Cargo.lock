@@ -647,6 +647,7 @@ dependencies = [
  "rnp-rs",
  "serde_json",
  "sha2",
+ "subtle",
 ]
 
 [[package]]

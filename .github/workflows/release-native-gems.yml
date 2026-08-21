@@ -2,21 +2,25 @@ name: release-native-gems
 
 # Cross-platform native gem builder.
 #
-# Triggered on tag push (v*.*.*) — builds pre-compiled native gems for
-# Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows
-# (x64-mingw-ucrt), then publishes each to RubyGems alongside the
-# source gem.
+# Triggered on tag push (v*.*.*) — cross-compiles pre-compiled native
+# gems for Linux (x86_64/aarch64) and macOS (x86_64/arm64) inside the
+# rbsys/<platform> Docker images, then publishes each to RubyGems.
 #
-# Local dry-run:
-#   bundle exec rake native_gem:all
+# The source gem is owned by test-and-release.yml; this workflow must
+# never push a ruby-platform gem — a source gem pushed here would burn
+# the version slot (RubyGems blocks re-pushing any version).
+#
+# Local dry-run (build only, no publish):
+#   bundle exec rake native_gem:x86_64-linux
 
 on:
   push:
     tags: [ 'v*' ]
   workflow_dispatch:
 
-permissions:
-  contents: read
+concurrency:
+  group: '${{ github.workflow }}-${{ github.job }}-${{ github.ref_name }}'
+  cancel-in-progress: true
 
 jobs:
   build-native-gem:
@@ -25,12 +29,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Windows is absent deliberately: the vendored RNP build
+        # (rnp-src → json-c, botan) has no MSVC/mingw cross story, so
+        # the gem ships no Windows natives (see rakelib/native_gem.rake).
         platform:
           - x86_64-linux
           - aarch64-linux
           - x86_64-darwin
           - arm64-darwin
-          - x64-mingw-ucrt
     steps:
       - uses: actions/checkout@v7
 
@@ -38,41 +44,28 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
-          bundler-cache: true
 
-      - name: Set up Docker (for rake-compiler-dock)
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build native gem for ${{ matrix.platform }}
-        run: bundle exec rake native_gem:${{ matrix.platform }}
-        # rake-compiler-dock resolves its own matching image
-        # (ghcr.io/rake-compiler/rake-compiler-dock-image:<gem
-        # version>-mri-<platform>); do not override RCD_IMAGE.
+      # rb-sys-dock builds inside the rbsys/<platform> image
+      # (rake-compiler-dock mri image layered with a Rust toolchain
+      # and cross C/C++ compilers) and runs `rake native:<platform>
+      # gem` there, producing pkg/confium-<version>-<platform>.gem.
+      - name: Cross-compile gem for ${{ matrix.platform }}
+        uses: oxidize-rb/actions/cross-gem@v1
+        with:
+          platform: ${{ matrix.platform }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: native-gem-${{ matrix.platform }}
-          path: confium-*.gem
-
-  build-source-gem:
-    name: source gem
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: true
-      - run: bundle exec rake native_gem:source
-      - uses: actions/upload-artifact@v7
-        with:
-          name: source-gem
-          path: confium-*.gem
+          path: pkg/*-${{ matrix.platform }}.gem
 
   publish:
     name: Publish to RubyGems
-    needs: [ build-native-gem, build-source-gem ]
+    needs: [ build-native-gem ]
+    # Tags only — a manual workflow_dispatch must never push (a failed
+    # push still burns the version slot for the platform).
+    if: contains(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -81,9 +74,25 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: gems/
+          merge-multiple: true
 
-      - name: List gems
-        run: find gems/ -name '*.gem' -exec ls -la {} \;
+      - name: Verify artifacts
+        run: |
+          set -eu
+          shopt -s nullglob
+          gems=(gems/*.gem)
+          if [ "${#gems[@]}" -eq 0 ]; then
+            echo "no native gems were built" >&2
+            exit 1
+          fi
+          for gem in "${gems[@]}"; do
+            platform="$(gem specification "$gem" platform)"
+            echo "$gem -> platform $platform"
+            if [ "$platform" = "ruby" ]; then
+              echo "refusing to push a ruby-platform gem from the native workflow" >&2
+              exit 1
+            fi
+          done
 
       # Exchange the job's OIDC token (id-token: write) for a short-lived
       # RubyGems API key; publishes via the gem's trusted publisher
@@ -91,9 +100,11 @@ jobs:
       - name: Configure RubyGems credentials (trusted publishing)
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
 
-      - name: Publish all gems
+      - name: Publish all native gems
         run: |
-          find gems/ -name '*.gem' -print0 | while IFS= read -r -d '' gem; do
+          set -eu
+          shopt -s nullglob
+          for gem in gems/*.gem; do
             echo "Pushing $gem"
             gem push "$gem"
           done
