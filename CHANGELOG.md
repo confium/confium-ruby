@@ -14,14 +14,16 @@ version that ever existed, so the native gems first appear here.
 
 ### Fixed
 
-- Native builds now run through `rb-sys-dock` (the rbsys/<platform>
-  images: rake-compiler-dock plus a Rust toolchain and cross C/C++
-  compilers), driven in CI by `oxidize-rb/actions/cross-gem`.
+- Platform gems now build on native-arch runners (one per target
+  platform). Cross-compilation via rake-compiler-dock is impossible
+  for this gem: the dock images are Ubuntu 20.04 (gcc 9.4) while the
+  vendored RNP stack needs Botan 3.12, which requires gcc 11+.
 - The release workflow no longer builds a source gem (that burned
-  the 0.3.1 version slots against test-and-release.yml's publish)
-  and refuses to push any gem stamped platform=ruby.
+  the 0.3.1 version slots against test-and-release.yml's publish),
+  refuses to push any gem stamped platform=ruby, and installs each
+  packaged gem on Ruby 3.1 and 3.4 before publishing.
 - Windows remains unsupported: the vendored RNP (json-c + botan)
-  build has no MSVC/mingw cross story.
+  build has no MSVC/mingw story.
 
 ## [0.3.1] — 2026-08-21
 
