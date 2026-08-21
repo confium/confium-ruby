@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'ffi'
 
 module Confium
@@ -17,6 +19,5 @@ module Confium
     def load_plugin(name, path)
       Confium.call_ffi(:cfm_plugin_load, @ptr, name, path, nil, nil)
     end
-
   end
 end

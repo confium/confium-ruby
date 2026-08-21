@@ -47,7 +47,7 @@ GEM
     mustermann (3.1.1)
     mutex_m (0.3.0)
     nio4r (2.7.5)
-    parallel (2.1.0)
+    parallel (1.28.0)
     parser (3.3.12.0)
       ast (~> 2.4.1)
       racc
@@ -151,6 +151,7 @@ PLATFORMS
 
 DEPENDENCIES
   confium!
+  parallel (~> 1.26)
   puma (~> 6.0)
   rackup
   rake (~> 13.0)
@@ -185,7 +186,7 @@ CHECKSUMS
   mustermann (3.1.1) sha256=4c6170c7234d5499c345562ba7c7dfe73e1754286dcc1abb053064d66a127198
   mutex_m (0.3.0) sha256=cfcb04ac16b69c4813777022fdceda24e9f798e48092a2b817eb4c0a782b0751
   nio4r (2.7.5) sha256=6c90168e48fb5f8e768419c93abb94ba2b892a1d0602cb06eef16d8b7df1dca1
-  parallel (2.1.0) sha256=b35258865c2e31134c5ecb708beaaf6772adf9d5efae28e93e99260877b09356
+  parallel (1.28.0) sha256=33e6de1484baf2524792d178b0913fc8eb94c628d6cfe45599ad4458c638c970
   parser (3.3.12.0) sha256=21a6d7f755d5a24dfbdc6e6b772e4e879a52e7631a88bc5a3a134606052c9828
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
   puma (6.6.1) sha256=b9b56e4a4ea75d1bfa6d9e1972ee2c9f43d0883f011826d914e8e37b3694ea1e

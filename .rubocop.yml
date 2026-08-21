@@ -1,0 +1,54 @@
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+  TargetRubyVersion: "3.1"
+
+# The gem is documented in docs/ and the README; classes don't carry
+# YARD comments.
+Style/Documentation:
+  Enabled: false
+
+# RSpec example groups and builder DSL blocks are naturally long.
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+    - "examples/**/*"
+    - "rakelib/**/*"
+    - "*.gemspec"
+    - "Rakefile"
+
+# Builders assemble a fluent sequence of attribute assignments; 10
+# lines is too tight for a readable build step.
+Metrics/MethodLength:
+  Max: 30
+
+# FFI wrappers initialize native handles — there is no super chain.
+Lint/MissingSuper:
+  Exclude:
+    - "lib/confium/**/*"
+
+Naming/VariableNumber:
+  Enabled: false
+
+# Published 0.x API names (check!, verify, set_local_share) — renaming
+# is a breaking change for no behavioral gain.
+Naming/PredicateMethod:
+  Enabled: false
+Naming/AccessorMethodName:
+  Enabled: false
+
+# Skeleton builders document forthcoming keyword arguments.
+Lint/UnusedMethodArgument:
+  Exclude:
+    - "lib/confium/pki/**/*"
+
+# rb_sys / rake-compiler-dock read development dependencies from the
+# gemspec when building native gems; moving them to the Gemfile
+# breaks the cross-compile pipeline.
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+# Rake namespaces define platform constants by the rake-compiler pattern.
+Lint/ConstantDefinitionInBlock:
+  Exclude:
+    - "rakelib/**/*"

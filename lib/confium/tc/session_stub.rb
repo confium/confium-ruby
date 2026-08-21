@@ -31,12 +31,12 @@ module Confium
       # call confium_tc::session::Session::round_step.
       def round_step(_incoming_messages)
         @round += 1
-        @complete = @round >= 3  # FROST is 3 rounds
+        @complete = @round >= 3 # FROST is 3 rounds
         { outgoing: [], complete: @complete }
       end
 
       def result
-        nil  # Real implementation returns the signature/secret bytes.
+        nil # Real implementation returns the signature/secret bytes.
       end
     end
   end

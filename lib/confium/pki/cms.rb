@@ -9,7 +9,7 @@
 module Confium
   module PKI
     module CMS
-      autoload :SignedDataBuilder, "confium/pki/cms/signed_data_builder"
+      autoload :SignedDataBuilder, 'confium/pki/cms/signed_data_builder'
     end
   end
 end

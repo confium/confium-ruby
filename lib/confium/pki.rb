@@ -8,6 +8,6 @@
 # extend the native surface.
 module Confium
   module PKI
-    autoload :CMS, "confium/pki/cms"
+    autoload :CMS, 'confium/pki/cms'
   end
 end

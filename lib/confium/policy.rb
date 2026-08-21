@@ -24,29 +24,29 @@ module Confium
     JURISDICTIONS = {
       # EU: eIDAS + GDPR alignment. RSA >= 2048, ECDSA P-256+.
       eu: {
-        rsa:       2048,
+        rsa: 2048,
         ecdsa_p256: 256,
         ecdsa_p384: 384,
-        ed25519:   256,
-        name:      "European Union (eIDAS)",
+        ed25519: 256,
+        name: 'European Union (eIDAS)'
       },
       # US: NIST SP 800-131A. RSA >= 2048, ECDSA P-256+, SHA-1 legacy.
       us: {
-        rsa:       2048,
+        rsa: 2048,
         ecdsa_p256: 256,
         ecdsa_p384: 384,
-        ed25519:   256,
+        ed25519: 256,
         sha1_legacy: true,
-        name:      "United States (NIST SP 800-131A)",
+        name: 'United States (NIST SP 800-131A)'
       },
       # OIML CNML: international, follows BIPM recommendations.
       cnml: {
-        rsa:       2048,
+        rsa: 2048,
         ecdsa_p256: 256,
         ecdsa_p384: 384,
-        ed25519:   256,
-        name:      "OIML CNML (BIPM)",
-      },
+        ed25519: 256,
+        name: 'OIML CNML (BIPM)'
+      }
     }.freeze
 
     class << self
@@ -77,7 +77,7 @@ module Confium
       # FIPS 186-5 draft); ECDSA P-256/P-384 are.
       # @param value [Boolean]
       def fips_mode=(value)
-        @fips_mode = !!value
+        @fips_mode = !value.nil?
         @jurisdiction = :us if @fips_mode && @jurisdiction.nil?
       end
 
@@ -98,7 +98,7 @@ module Confium
             raise Confium::PolicyViolationError.new(
               "algorithm #{alg} is not FIPS-approved",
               policy: :fips,
-              violation: :unapproved_algorithm,
+              violation: :unapproved_algorithm
             )
           end
         end
@@ -115,7 +115,7 @@ module Confium
           raise Confium::PolicyViolationError.new(
             "#{alg} key size #{key_bits} below #{min_bits} for #{@jurisdiction}",
             policy: @jurisdiction,
-            violation: :key_too_small,
+            violation: :key_too_small
           )
         end
 

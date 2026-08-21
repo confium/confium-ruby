@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "confium/lib"
+require 'confium/lib'
 
 # Confium::TC::Session wraps a threshold cryptography session.
 #
@@ -32,7 +32,8 @@ module Confium
       end
 
       def set_local_share(share_bytes)
-        raise ArgumentError, "share must be a String" unless share_bytes.is_a?(String)
+        raise ArgumentError, 'share must be a String' unless share_bytes.is_a?(String)
+
         @local_share = share_bytes
       end
 
@@ -41,7 +42,8 @@ module Confium
       end
 
       def result
-        raise "Session not complete" unless complete?
+        raise 'Session not complete' unless complete?
+
         @result
       end
     end

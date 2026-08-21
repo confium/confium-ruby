@@ -12,8 +12,8 @@
 # per record). Custom sinks can subclass {Sink} for HTTP / syslog /
 # Kafka backends.
 
-require "json"
-require "time"
+require 'json'
+require 'time'
 
 module Confium
   module Audit
@@ -81,8 +81,8 @@ module Confium
       end
 
       # Enumerable contract: yield each record in insertion order.
-      def each(&block)
-        @records.each(&block)
+      def each(&)
+        @records.each(&)
       end
     end
 
@@ -109,7 +109,7 @@ module Confium
 
       def initialize(path)
         @path = path
-        @io = File.open(path, "a")
+        @io = File.open(path, 'a')
         @io.sync = true
       end
 
