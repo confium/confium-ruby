@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "ffi"
+require 'ffi'
 
 # {Confium::FFI} is the namespace for everything that touches the native
 # Confium shared library through Ruby-FFI.
@@ -16,8 +16,8 @@ require "ffi"
 # migrated into `Confium::FFI::Library` in a follow-up.
 module Confium
   module FFI
-    autoload :Library, "confium/ffi/library"
-    autoload :Error,   "confium/ffi/error"
-    autoload :Options, "confium/ffi/options"
+    autoload :Library, 'confium/ffi/library'
+    autoload :Error,   'confium/ffi/error'
+    autoload :Options, 'confium/ffi/options'
   end
 end

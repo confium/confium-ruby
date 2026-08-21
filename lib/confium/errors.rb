@@ -23,4 +23,4 @@ module Confium
   end
 end
 
-require_relative "errors/coerce"
+require_relative 'errors/coerce'

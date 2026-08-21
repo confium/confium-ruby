@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "json"
-require "digest"
+require 'json'
+require 'digest'
 
 # Confium::PKI::CMS::SignedDataBuilder — construct CMS SignedData
 # envelopes with one or more signers.
@@ -27,8 +27,8 @@ module Confium
         attr_accessor :content
 
         SIGNATURE_ALGORITHM_OID = {
-          ed25519: "1.3.101.112",
-          ecdsa_p256: "1.2.840.10045.4.3.2",
+          ed25519: '1.3.101.112',
+          ecdsa_p256: '1.2.840.10045.4.3.2'
         }.freeze
 
         def initialize
@@ -46,7 +46,7 @@ module Confium
           @signers << {
             cert_der: cert_der,
             private_key: private_key,
-            algorithm: algorithm,
+            algorithm: algorithm
           }
         end
 
@@ -57,8 +57,8 @@ module Confium
         #
         # @return [Confium::PKI::CMS::SignedData]
         def build
-          raise ArgumentError, "at least one signer is required" if @signers.empty?
-          raise ArgumentError, "#content is required (detached builder)" if @content.nil?
+          raise ArgumentError, 'at least one signer is required' if @signers.empty?
+          raise ArgumentError, '#content is required (detached builder)' if @content.nil?
 
           primary = @signers.first
           payload_bytes = @content.respond_to?(:bytes) ? @content.bytes : @content
@@ -68,7 +68,7 @@ module Confium
           SignedData.build_detached(
             signature,
             algorithm_oid,
-            @signers.map { |s| s[:cert_der] },
+            @signers.map { |s| s[:cert_der] }
           )
         end
 
@@ -78,10 +78,10 @@ module Confium
           case algorithm
           when :ed25519
             result = Confium::Composite.sign_ed25519(private_key, payload)
-            result.fetch("signature")
+            result.fetch('signature')
           when :ecdsa_p256
             result = Confium::TC::FrostP256.sign(private_key, payload)
-            result.fetch("signature")
+            result.fetch('signature')
           else
             raise ArgumentError, "unsupported algorithm: #{algorithm.inspect}"
           end

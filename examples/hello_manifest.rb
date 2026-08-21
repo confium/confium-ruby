@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
+
 #
 # Hello world: deployment manifest.
 # Run with: ruby examples/hello_manifest.rb
@@ -9,7 +10,7 @@
 #   - Inspecting signers, quorum, policy
 #   - Validating a deployment configuration
 
-require "confium"
+require 'confium'
 
 # Create a sample manifest TOML.
 toml = <<~TOML
@@ -38,7 +39,7 @@ toml = <<~TOML
 TOML
 
 # Write to temp file.
-path = "/tmp/confium-hello-manifest.toml"
+path = '/tmp/confium-hello-manifest.toml'
 File.write(path, toml)
 
 # Load and inspect.

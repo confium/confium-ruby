@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "json"
-require "fileutils"
+require 'json'
+require 'fileutils'
 
 module Confium
   module TC
@@ -46,11 +46,11 @@ module Confium
       def self.from_json(json)
         d = JSON.parse(json)
         new(
-          scheme: d.fetch("scheme"),
-          threshold: d.fetch("threshold"),
-          party_count: d.fetch("party_count"),
-          public_key: [d.fetch("public_key")].pack("H*"),
-          shares: d.fetch("shares").map { |h| [h].pack("H*") },
+          scheme: d.fetch('scheme'),
+          threshold: d.fetch('threshold'),
+          party_count: d.fetch('party_count'),
+          public_key: [d.fetch('public_key')].pack('H*'),
+          shares: d.fetch('shares').map { |h| [h].pack('H*') }
         )
       end
 
@@ -67,8 +67,8 @@ module Confium
           scheme: scheme,
           threshold: threshold,
           party_count: party_count,
-          public_key: public_key.unpack1("H*"),
-          shares: shares.map { |s| s.unpack1("H*") },
+          public_key: public_key.unpack1('H*'),
+          shares: shares.map { |s| s.unpack1('H*') }
         )
       end
 
@@ -76,10 +76,10 @@ module Confium
       def self.from_keygen(scheme_name, keygen_result)
         new(
           scheme: scheme_name,
-          threshold: nil,        # not carried by the keygen Hash; caller knows
-          party_count: keygen_result["shares"].length,
-          public_key: keygen_result["public_key"],
-          shares: keygen_result["shares"],
+          threshold: nil, # not carried by the keygen Hash; caller knows
+          party_count: keygen_result['shares'].length,
+          public_key: keygen_result['public_key'],
+          shares: keygen_result['shares']
         )
       end
     end

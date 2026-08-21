@@ -11,7 +11,7 @@
 # for the full interface specification.
 module Confium
   module TC
-    autoload :Session, "confium/tc/session"
-    autoload :Coordinator, "confium/tc/coordinator"
+    autoload :Session, 'confium/tc/session'
+    autoload :Coordinator, 'confium/tc/coordinator'
   end
 end

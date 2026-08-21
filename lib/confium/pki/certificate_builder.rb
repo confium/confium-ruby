@@ -22,8 +22,8 @@ module Confium
       attr_accessor :subject, :issuer, :serial, :not_before, :not_after
 
       def initialize
-        @subject = ""
-        @issuer = nil  # nil = self-signed
+        @subject = ''
+        @issuer = nil # nil = self-signed
         @serial = rand(1..(1 << 128))
         @not_before = Time.now
         @not_after = Time.now + (365 * 24 * 3600)
@@ -52,7 +52,7 @@ module Confium
           not_before: @not_before.iso8601,
           not_after: @not_after.iso8601,
           algorithm: algorithm.to_s,
-          public_key_hex: kp["public_key"].unpack1("H*"),
+          public_key_hex: kp['public_key'].unpack1('H*')
         }
       end
     end

@@ -9,21 +9,21 @@
 # via sig/confium.rbs and surface in consumer code that uses them.
 
 target :lib do
-  signature "sig"
+  signature 'sig'
 
-  check "lib/confium.rb"
-  check "lib/confium/version.rb"
+  check 'lib/confium.rb'
+  check 'lib/confium/version.rb'
 end
 
 target :specs do
-  signature "sig"
-  check "spec/confium/transparency_spec.rb"
-  check "spec/confium/composite_spec.rb"
-  check "spec/confium/attributes_spec.rb"
-  check "spec/confium/pki_spec.rb"
-  check "spec/confium/deployment_spec.rb"
-  check "spec/confium/tc_spec.rb"
-  check "spec/integration_cnml_workflow_spec.rb"
+  signature 'sig'
+  check 'spec/confium/transparency_spec.rb'
+  check 'spec/confium/composite_spec.rb'
+  check 'spec/confium/attributes_spec.rb'
+  check 'spec/confium/pki_spec.rb'
+  check 'spec/confium/deployment_spec.rb'
+  check 'spec/confium/tc_spec.rb'
+  check 'spec/integration_cnml_workflow_spec.rb'
 end
 
 # Configure library paths so steep can find the gem's own requires.

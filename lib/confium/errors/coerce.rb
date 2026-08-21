@@ -39,9 +39,7 @@ module Confium
           kwargs = message.transform_keys(&:to_sym).merge(kwargs)
           message = kwargs.delete(:message)
         end
-        if details_hash.is_a?(Hash)
-          kwargs = details_hash.transform_keys(&:to_sym).merge(kwargs)
-        end
+        kwargs = details_hash.transform_keys(&:to_sym).merge(kwargs) if details_hash.is_a?(Hash)
         [message, kwargs]
       end
     end

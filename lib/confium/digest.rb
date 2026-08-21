@@ -1,10 +1,11 @@
+# frozen_string_literal: true
+
 require 'ffi'
 require 'digest'
 
 module Confium
   class Digest < ::Digest::Class
-    attr_reader :name
-    attr_reader :ptr
+    attr_reader :name, :ptr
 
     def initialize(cfm, name)
       @name = name
@@ -12,6 +13,7 @@ module Confium
       Confium.call_ffi(:cfm_hash_create, cfm.ptr, pptr, name, nil, nil, nil)
       ptr = pptr.read_pointer
       raise if ptr.null?
+
       @ptr = ::FFI::AutoPointer.new(ptr, self.class.method(:destroy))
     end
 

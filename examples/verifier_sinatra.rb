@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
+
 #
 # Sinatra verifier quickstart — exposes three endpoints that exercise
 # the most common verifier workflows:
@@ -18,9 +19,9 @@
 # real deployments, swap in Puma (bundle add puma) and add TLS at the
 # reverse proxy layer.
 
-require "json"
-require "sinatra/base"
-require "confium"
+require 'json'
+require 'sinatra/base'
+require 'confium'
 
 class VerifierApp < Sinatra::Base
   # 5 MiB request cap — well above any realistic sig payload, well
@@ -29,17 +30,15 @@ class VerifierApp < Sinatra::Base
 
   before do
     content_type :json
-    if request.content_length.to_i > settings.max_request_size
-      halt 413, JSON.generate(error: "request too large")
-    end
+    halt 413, JSON.generate(error: 'request too large') if request.content_length.to_i > settings.max_request_size
   end
 
   # Health check — confirms the native extension is loaded.
-  get "/health" do
+  get '/health' do
     JSON.generate(
       ok: true,
       version: Confium::VERSION,
-      core_version: Confium.core_version,
+      core_version: Confium.core_version
     )
   end
 
@@ -50,21 +49,21 @@ class VerifierApp < Sinatra::Base
   #   }
   #
   # The composite sig JSON shape matches Confium::Composite::Signature#from_json.
-  post "/verify/composite" do
+  post '/verify/composite' do
     body = JSON.parse(request.body.read)
-    sig_json = body.fetch("composite")
-    message = [body.fetch("message")].pack("H*")
+    sig_json = body.fetch('composite')
+    message = [body.fetch('message')].pack('H*')
 
     sig = Confium::Composite::Signature.from_json(sig_json)
     result = sig.verify(message, {})
 
     JSON.generate(
       all_verified: result.all_verified?,
-      per_component: result.per_component,
+      per_component: result.per_component
     )
   rescue KeyError => e
     halt 400, JSON.generate(error: "missing field: #{e.message}")
-  rescue => e
+  rescue StandardError => e
     halt 400, JSON.generate(error: e.message)
   end
 
@@ -75,37 +74,37 @@ class VerifierApp < Sinatra::Base
   #     "root":         "<hex 32 bytes>",
   #     "sequence":     <integer>
   #   }
-  post "/verify/inclusion" do
+  post '/verify/inclusion' do
     body = JSON.parse(request.body.read)
-    leaf_hash = [body.fetch("leaf_hash")].pack("H*")
-    root      = [body.fetch("root")].pack("H*")
+    leaf_hash = [body.fetch('leaf_hash')].pack('H*')
+    root      = [body.fetch('root')].pack('H*')
 
     proof = Confium::Transparency::InclusionProof.new(
-      sequence: body.fetch("sequence"),
-      steps: body.fetch("proof_steps").map { |s|
+      sequence: body.fetch('sequence'),
+      steps: body.fetch('proof_steps').map do |s|
         {
-          "sibling" => [s.fetch("sibling")].pack("H*"),
-          "side"    => s.fetch("side"),
+          'sibling' => [s.fetch('sibling')].pack('H*'),
+          'side' => s.fetch('side')
         }
-      },
+      end
     )
 
     ok = Confium::Transparency::MerkleTree.verify_inclusion(
       entry: leaf_hash,
       proof: proof,
-      root: root,
+      root: root
     )
     JSON.generate(verified: ok)
   rescue KeyError => e
     halt 400, JSON.generate(error: "missing field: #{e.message}")
-  rescue => e
+  rescue StandardError => e
     halt 400, JSON.generate(error: e.message)
   end
 
   # Custom 404 — JSON, not HTML.
   not_found do
     content_type :json
-    JSON.generate(error: "not found")
+    JSON.generate(error: 'not found')
   end
 end
 

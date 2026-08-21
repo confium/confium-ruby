@@ -16,18 +16,18 @@ module Confium
       # Required X.509 v3 extensions for a CNML certificate.
       REQUIRED_EXTENSIONS = {
         # Standard X.509 extensions required by CNML:
-        "2.5.29.19" => "basicConstraints (CA=true for IA certs, CA=false for leaf)",
-        "2.5.29.15" => "keyUsage (digitalSignature for signing certs)",
-        "2.5.29.37" => "extKeyUsage (id-kp-OCSPSigning or custom CNML OIDs)",
-        "2.5.29.14" => "subjectKeyIdentifier (required for CMS signer resolution)",
-        "2.5.29.35" => "authorityKeyIdentifier (required for chain building)",
+        '2.5.29.19' => 'basicConstraints (CA=true for IA certs, CA=false for leaf)',
+        '2.5.29.15' => 'keyUsage (digitalSignature for signing certs)',
+        '2.5.29.37' => 'extKeyUsage (id-kp-OCSPSigning or custom CNML OIDs)',
+        '2.5.29.14' => 'subjectKeyIdentifier (required for CMS signer resolution)',
+        '2.5.29.35' => 'authorityKeyIdentifier (required for chain building)'
       }.freeze
 
       # Optional but recommended extensions.
       OPTIONAL_EXTENSIONS = {
-        "2.5.29.31" => "cRLDistributionPoints (for revocation checking)",
-        "2.5.29.32" => "certificatePolicies (CNML policy OID)",
-        "1.3.6.1.5.5.7.1.1" => "authorityInfoAccess (OCSP responder URL)",
+        '2.5.29.31' => 'cRLDistributionPoints (for revocation checking)',
+        '2.5.29.32' => 'certificatePolicies (CNML policy OID)',
+        '1.3.6.1.5.5.7.1.1' => 'authorityInfoAccess (OCSP responder URL)'
       }.freeze
 
       # CNML certificate roles (maps to ActorType in Confium::Identity).

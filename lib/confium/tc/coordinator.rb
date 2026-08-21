@@ -25,7 +25,7 @@ module Confium
         @sessions = {}
       end
 
-      def create_session(message:, threshold:, unlock_window: 14400)
+      def create_session(message:, threshold:, unlock_window: 14_400)
         session_id = "session-#{@sessions.length + 1}"
         @sessions[session_id] = {
           message: message,
@@ -33,7 +33,7 @@ module Confium
           unlock_window: unlock_window,
           state: :pending,
           commitments: [],
-          shares: [],
+          shares: []
         }
         session_id
       end
@@ -45,9 +45,9 @@ module Confium
       def submit_commitment(session_id, signer_id, commitment_bytes)
         session = @sessions[session_id] or raise "Unknown session: #{session_id}"
         session[:commitments] << { signer_id: signer_id, bytes: commitment_bytes }
-        if session[:commitments].length >= session[:threshold]
-          session[:state] = :commitments_collected
-        end
+        return unless session[:commitments].length >= session[:threshold]
+
+        session[:state] = :commitments_collected
       end
 
       def submit_share(session_id, signer_id, share_bytes)
@@ -57,7 +57,8 @@ module Confium
 
       def aggregate(session_id)
         session = @sessions[session_id] or raise "Unknown session: #{session_id}"
-        raise "Threshold not met" if session[:shares].length < session[:threshold]
+        raise 'Threshold not met' if session[:shares].length < session[:threshold]
+
         session[:state] = :completed
         # In real implementation, calls FFI to aggregate shares
         session[:shares].map { |s| s[:bytes] }.join
