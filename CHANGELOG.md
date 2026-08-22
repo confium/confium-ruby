@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.3] — 2026-08-22
 
 ### Added
 
@@ -10,10 +10,10 @@
   happy path, which called a `from_json` that did not exist).
 - Steep type checking in CI: the Steepfile never loaded before
   (it used a `configure_code_diagnostics` API that does not exist in
-  steep 1.10). `sig/confium.rbs` now covers Policy, SecureBytes,
-  PathValidator, the typed error hierarchy, Audit sinks, OpenPGP,
-  ERS, OTS, CNML, CMS builders, ShareFile, and Cmp20/Gg18, and
-  `bundle exec steep check` is green and enforced.
+  steep 1.10). `sig/confium.rbs` now covers every pure-Ruby
+  subsystem — including the TC session machinery — and
+  `bundle exec steep check` is green and enforced. Only the FFI
+  layer is excluded (the ffi gem has no RBS signatures).
 
 ### Fixed
 

@@ -405,6 +405,46 @@ module Confium::TC
     def self.sign: (Array[String] shares, Integer threshold, String message_bytes) -> String
   end
 
+  class Session
+    attr_reader scheme: String
+    attr_reader threshold: Integer
+    attr_reader num_parties: Integer
+    attr_reader party_index: Integer
+    attr_reader state: Symbol
+
+    def initialize: (scheme: String, threshold: Integer, num_parties: Integer, party_index: Integer) -> void
+    def set_local_share: (String share_bytes) -> void
+    def complete?: () -> bool
+    def result: () -> untyped
+  end
+
+  # Placeholder for the multi-party TC session interface; the real
+  # orchestration is wired through the extension in a future release.
+  class SessionStub
+    attr_reader scheme: String
+    attr_reader threshold: Integer
+    attr_reader party_count: Integer
+    attr_reader this_party_idx: Integer
+    attr_reader round: Integer
+
+    def initialize: (scheme: String, threshold: Integer, party_count: Integer, this_party_idx: Integer) -> void
+    def complete?: () -> bool
+    def round_step: (Array[untyped] incoming_messages) -> Hash[Symbol, untyped]
+    def result: () -> nil
+  end
+
+  class Coordinator
+    attr_reader quorum_id: String
+    attr_reader sessions: Hash[String, Hash[Symbol, untyped]]
+
+    def initialize: (quorum_id: String) -> void
+    def create_session: (message: String, threshold: Integer, ?unlock_window: Integer) -> String
+    def session_state: (String session_id) -> Symbol?
+    def submit_commitment: (String session_id, String signer_id, String commitment_bytes) -> void
+    def submit_share: (String session_id, String signer_id, String share_bytes) -> void
+    def aggregate: (String session_id) -> String
+  end
+
   class ShareFile
     attr_reader scheme: String
     attr_reader threshold: Integer?

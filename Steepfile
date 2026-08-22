@@ -23,9 +23,4 @@ target :lib do
   ignore 'lib/confium/ffi.rb'
   ignore 'lib/confium/digest.rb'
   ignore 'lib/confium/cfm.rb'
-
-  # TC session machinery — typed as a follow-up.
-  ignore 'lib/confium/tc/session.rb'
-  ignore 'lib/confium/tc/coordinator.rb'
-  ignore 'lib/confium/tc/session_stub.rb'
 end
