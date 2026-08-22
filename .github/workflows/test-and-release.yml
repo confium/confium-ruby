@@ -49,6 +49,41 @@ jobs:
       - name: Run specs
         run: bundle exec rspec
 
+  examples:
+    # Examples rot silently when nothing runs them (all five hello_*
+    # quickstarts were broken against the real APIs until 2026-08-22).
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+
+      - name: Build native extension
+        run: bundle exec rake compile
+
+      - name: Run every example
+        run: |
+          set -eu
+          for f in examples/*.rb; do
+            case "$f" in
+              */verifier_sinatra.rb) continue ;;  # server; covered below
+            esac
+            echo "== $(basename "$f")"
+            ruby -Ilib "$f" > /dev/null
+          done
+
+      - name: Sinatra verifier integration test
+        run: bash scripts/sinatra_integration_test.sh
+
   lint:
     name: RuboCop
     runs-on: ubuntu-latest

@@ -10,7 +10,7 @@ Confium supports three deployment modes:
 * **Mode 2 — TC PKI replacement**: drop-in for existing PKI consumers (PKCS#11 server, OpenSSL 3.0 provider, JCE)
 * **Mode 3 — TC Certificate PKI**: institutional deployments with custom certificate formats (OIML CNML, BIPM, pharma, accreditation)
 
-This gem wraps the high-value Confium subsystems via a Rust native extension (built at `gem install` time with `rb_sys` + `magnus`). No separate C ABI library to install; everything is statically linked into the extension.
+This gem wraps the high-value Confium subsystems via a Rust native extension. Pre-compiled platform gems are published for Linux and macOS, so `gem install` needs no Rust toolchain there; other platforms build from source at install time with `rb_sys` + `magnus`. No separate C ABI library to install; everything is statically linked into the extension.
 
 == Installation
 
@@ -18,7 +18,7 @@ Add to your Gemfile:
 
 [source,ruby]
 ----
-gem "confium", "~> 0.1"
+gem "confium", "~> 0.3"
 ----
 
 Or install directly:
@@ -31,10 +31,18 @@ $ gem install confium
 === Prerequisites
 
 * Ruby ≥ 3.1
+* Nothing else on the pre-compiled platforms: `x86_64-linux`,
+  `aarch64-linux`, `x86_64-darwin`, `arm64-darwin` (each gem carries
+  one extension per Ruby C-ABI window)
+
+Source builds (other platforms, or installing from the repo) also
+need:
+
 * Rust stable toolchain (`rustup default stable`)
 * C toolchain (clang/gcc/Xcode CLT)
 
-The gem compiles a Rust cdylib at install time and links it into Ruby as a native extension. There is no separate `libconfium` to install.
+There is no separate `libconfium` to install — the extension
+statically links everything.
 
 == Quick start
 
@@ -76,7 +84,7 @@ recovered = Confium::TC::FrostP256.recover_secret(shares.first(3).map { |s| { "x
 recovered == kp["private_key"]  # => true
 ----
 
-== API surface (v0.1.0)
+== API surface (v0.3)
 
 === `Confium::Transparency`
 - `MerkleTree.new` / `#append(artifact_hash)` / `#root` / `#length` / `#empty?` / `#inclusion_proof(seq)`
@@ -127,7 +135,7 @@ After checking out the repo:
 ----
 $ bundle install
 $ bundle exec rake compile       # build the Rust extension
-$ bundle exec rspec              # 75+ specs
+$ bundle exec rspec              # 226 specs
 ----
 
 == Architecture
