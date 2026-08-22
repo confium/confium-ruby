@@ -10,11 +10,12 @@ name: release-native-gems
 # dock images are Ubuntu 20.04 (gcc 9.4) and the vendored RNP stack
 # needs Botan 3.12, which requires gcc 11+.
 #
-# One extension cannot span all supported Rubies (rb-sys references
-# ruby_current_vm_ptr on Ruby <= 3.2, which libruby stopped exporting
-# in 3.3), so each platform gem carries one .so per C-ABI window:
-# 3.1 (loads on 3.1/3.2) and 3.3 (loads on 3.3+). lib/confium.rb
-# picks the directory for the running Ruby.
+# One extension cannot span all supported Rubies: Ruby 3.2 broke the
+# 3.1 ABI (a 3.1-built extension segfaults on 3.2), and rb-sys
+# references ruby_current_vm_ptr on Ruby <= 3.2, which libruby
+# stopped exporting in 3.3. Each platform gem therefore carries one
+# .so per C-ABI window: exact minors 3.1 and 3.2, plus 3.3 (loads
+# on 3.3+). lib/confium.rb picks the directory for the running Ruby.
 #
 # The source gem is owned by test-and-release.yml; this workflow must
 # never push a ruby-platform gem — a source gem pushed here would burn
@@ -37,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin ]
-        abi: [ '3.1', '3.3' ]
+        abi: [ '3.1', '3.2', '3.3' ]
         include:
           - platform: x86_64-linux
             runner: ubuntu-latest
@@ -105,7 +106,7 @@ jobs:
         run: |
           ls -laR so/
           mkdir -p lib/confium_native
-          cp -R so/3.1 so/3.3 lib/confium_native/
+          cp -R so/3.1 so/3.2 so/3.3 lib/confium_native/
           bundle exec rake native_gem:package[${{ matrix.platform }}]
 
       - uses: actions/upload-artifact@v7
