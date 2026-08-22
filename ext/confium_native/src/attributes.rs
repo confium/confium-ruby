@@ -63,7 +63,7 @@ impl SignerWrap {
 
 fn parse(expr: String) -> Result<Obj<PredicateWrap>, Error> {
     let predicate = dsl_parse(&expr)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::parse_error(e.to_string(), "Attributes.parse", Some("dsl"), None))?;
     let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
     Ok(ruby.obj_wrap(PredicateWrap { inner: predicate }))
 }

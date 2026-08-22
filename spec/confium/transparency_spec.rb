@@ -100,7 +100,7 @@ RSpec.describe Confium::Transparency::MerkleTree, '#consistency_proof' do
   it 'rejects old_size larger than current' do
     tree = described_class.new
     4.times { |i| tree.append(([i].pack('C') * 32).force_encoding('BINARY')) }
-    expect { tree.consistency_proof(8) }.to raise_error(RuntimeError)
+    expect { tree.consistency_proof(8) }.to raise_error(Confium::IndexError)
   end
 
   it 'returns entries that are all 32 bytes' do
@@ -153,7 +153,7 @@ RSpec.describe Confium::Transparency::MerkleTree, '#verify_consistency' do
     bogus_old_root = ("\xff".b * 32).force_encoding('BINARY')
     expect do
       tree.verify_consistency(bogus_old_root, roots[7], 4, 8, proof)
-    end.to raise_error(RuntimeError, /consistency/)
+    end.to raise_error(Confium::VerificationError, /consistency/)
   end
 
   it 'detects tampered new_root' do
@@ -163,7 +163,7 @@ RSpec.describe Confium::Transparency::MerkleTree, '#verify_consistency' do
     bogus_new_root = ("\xff".b * 32).force_encoding('BINARY')
     expect do
       tree.verify_consistency(old_root, bogus_new_root, 4, 8, proof)
-    end.to raise_error(RuntimeError, /consistency/)
+    end.to raise_error(Confium::VerificationError, /consistency/)
   end
 
   it 'rejects short old_root bytes' do

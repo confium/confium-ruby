@@ -72,7 +72,7 @@ impl MerkleTree {
             .inner
             .borrow()
             .consistency_proof(old_size)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::index_error(e.to_string(), "MerkleTree.consistency_proof", Some(old_size as u64)))?;
         let ruby = Ruby::get()
             .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         let arr = ruby.ary_new_capa(proof.len());
@@ -142,7 +142,7 @@ impl MerkleTree {
             .borrow()
             .verify_consistency(old_root_hash, new_root_hash, old_size, new_size, &proof_hashes)
             .map(|_| true)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+            .map_err(|e| crate::util::verification_error(e.to_string(), "MerkleTree.verify_consistency", None, None))
     }
 
     fn root(&self) -> Value {
@@ -155,10 +155,10 @@ impl MerkleTree {
         let tree = self.inner.borrow();
         let proof = tree
             .inclusion_proof(seq)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::index_error(e.to_string(), "MerkleTree.inclusion_proof", Some(seq)))?;
         let entry = tree
             .entry(seq)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::index_error(e.to_string(), "MerkleTree.inclusion_proof", Some(seq)))?;
         // Re-derive the leaf hash with the same algorithm the tree uses
         // internally (H(0x01 | entry_hash)).
         let leaf_hash = hash_leaf(entry.entry_hash());

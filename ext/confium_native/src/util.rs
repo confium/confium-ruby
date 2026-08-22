@@ -149,6 +149,19 @@ pub fn parse_error(msg: impl Into<String>, operation: &str, format: Option<&str>
 }
 
 #[allow(dead_code)]
+pub fn index_error(msg: impl Into<String>, operation: &str, index: Option<u64>) -> Error {
+    let ruby = match Ruby::get() {
+        Ok(r) => r,
+        Err(_) => return Error::new(exception::runtime_error(), msg.into()),
+    };
+    let d = new_details(&ruby);
+    let _ = d.aset("operation", operation);
+    let _ = d.aset("component", "Confium");
+    if let Some(i) = index { let _ = d.aset("index", i); }
+    confium_error(msg, "IndexError", d)
+}
+
+#[allow(dead_code)]
 pub fn validation_error(msg: impl Into<String>, operation: &str, param: &str, expected: &str, actual: &str) -> Error {
     let ruby = match Ruby::get() {
         Ok(r) => r,

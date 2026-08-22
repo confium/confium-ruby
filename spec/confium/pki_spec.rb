@@ -32,7 +32,7 @@ RSpec.describe Confium::PKI::Certificate do
     it 'raises on malformed PEM' do
       expect do
         described_class.from_pem('not a cert')
-      end.to raise_error(RuntimeError)
+      end.to raise_error(Confium::ParseError)
     end
   end
 
@@ -122,7 +122,7 @@ RSpec.describe Confium::PKI::CSR do
     bad = String.new("\x00\x00\x00", encoding: Encoding::ASCII_8BIT)
     expect do
       described_class.from_der(bad)
-    end.to raise_error(RuntimeError, /SEQUENCE/)
+    end.to raise_error(Confium::ParseError, /SEQUENCE/)
   end
 end
 
@@ -147,7 +147,7 @@ RSpec.describe Confium::PKI::CMS::SignedData do
     end
 
     it 'raises on invalid JSON' do
-      expect { described_class.from_json('{not json') }.to raise_error(RuntimeError)
+      expect { described_class.from_json('{not json') }.to raise_error(Confium::ParseError)
     end
   end
 
@@ -215,7 +215,7 @@ RSpec.describe Confium::PKI::XMLDSig do
     it 'raises on malformed XML' do
       expect do
         described_class.canonicalize('&&&unterminated entity')
-      end.to raise_error(RuntimeError, /malformed XML/)
+      end.to raise_error(Confium::ParseError, /malformed XML/)
     end
   end
 

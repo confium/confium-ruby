@@ -41,7 +41,7 @@ RSpec.describe Confium::Identity::Actor do
     end
 
     it 'raises on malformed JSON' do
-      expect { described_class.from_json('{not json') }.to raise_error(RuntimeError)
+      expect { described_class.from_json('{not json') }.to raise_error(Confium::ParseError)
     end
   end
 
@@ -122,7 +122,7 @@ RSpec.describe Confium::Config::Manifest do
     end
 
     it 'raises on malformed TOML' do
-      expect { described_class.from_toml('not = = toml') }.to raise_error(RuntimeError)
+      expect { described_class.from_toml('not = = toml') }.to raise_error(Confium::ParseError)
     end
   end
 

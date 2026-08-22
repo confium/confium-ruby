@@ -1,6 +1,15 @@
 # Changelog
 
-## [0.3.3] — 2026-08-22
+## [0.3.3] — 2026-08-23
+
+### Added
+
+- **Typed native errors everywhere**: PEM/DER, JSON, TOML, DSL, and
+  XML parse failures raise `Confium::ParseError`; out-of-range
+  sequence indexes raise `Confium::IndexError`; consistency-proof
+  failures raise `Confium::VerificationError` — each with a
+  structured `details` Hash (format, operation, index, ...).
+  Previously these surfaced as bare `RuntimeError`.
 
 ### Added
 

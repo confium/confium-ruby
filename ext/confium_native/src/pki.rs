@@ -10,7 +10,7 @@
 //! *building* + signing lands in a follow-up once the Rust builder API
 //! stabilizes (currently `confium_pki::cert::builder` is private).
 
-use crate::util::{bytes_from_value, bytes_to_rstring, enforce_size};
+use crate::util::{bytes_from_value, bytes_to_rstring, enforce_size, parse_error};
 use chrono::{DateTime, Utc};
 use confium_pki::{
     cert::{Certificate as RustCert, CertificateSigningRequest as RustCsr},
@@ -34,7 +34,7 @@ impl Certificate {
     fn from_der(bytes: Value) -> Result<Obj<Self>, Error> {
         let der = bytes_from_value(bytes)?;
         let cert = RustCert::from_der(&der)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| parse_error(e.to_string(), "Certificate.from_der", Some("der"), None))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: cert }))
     }
@@ -42,7 +42,7 @@ impl Certificate {
     fn from_pem(pem: String) -> Result<Obj<Self>, Error> {
         enforce_size(pem.len())?;
         let cert = RustCert::from_pem(&pem)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| parse_error(e.to_string(), "Certificate.from_pem", Some("pem"), None))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: cert }))
     }
@@ -102,7 +102,7 @@ impl Csr {
     fn from_der(bytes: Value) -> Result<Obj<Self>, Error> {
         let der = bytes_from_value(bytes)?;
         let csr = RustCsr::from_der(&der)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| parse_error(e.to_string(), "Csr.from_der", Some("der"), None))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: csr }))
     }
@@ -110,7 +110,7 @@ impl Csr {
     fn from_pem(pem: String) -> Result<Obj<Self>, Error> {
         enforce_size(pem.len())?;
         let csr = RustCsr::from_pem(&pem)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| parse_error(e.to_string(), "Csr.from_pem", Some("pem"), None))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: csr }))
     }
@@ -135,7 +135,7 @@ impl SignedData {
     fn from_json(json: String) -> Result<Obj<Self>, Error> {
         enforce_size(json.len())?;
         let sd: RustSignedData = serde_json::from_str(&json)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| parse_error(e.to_string(), "SignedData.from_json", Some("json"), None))?;
         let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(sd),
@@ -362,12 +362,12 @@ impl CertWrapper {
 
 fn xmldsig_canonicalize(xml: String) -> Result<String, Error> {
     enforce_size(xml.len())?;
-    canonicalize(&xml).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+    canonicalize(&xml).map_err(|e| parse_error(e.to_string(), "XMLDSig.canonicalize", Some("xml"), None))
 }
 
 fn xmldsig_canonicalize_exclusive(xml: String) -> Result<String, Error> {
     enforce_size(xml.len())?;
-    canonicalize_exclusive(&xml).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+    canonicalize_exclusive(&xml).map_err(|e| parse_error(e.to_string(), "XMLDSig.canonicalize_exclusive", Some("xml"), None))
 }
 
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {

@@ -26,6 +26,6 @@ RSpec.describe 'Input size caps' do
     # parse error, not size error
     expect do
       Confium::PKI::Certificate.from_pem(pem)
-    end.to raise_error(RuntimeError)
+    end.to raise_error(Confium::ParseError)
   end
 end
