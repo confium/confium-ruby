@@ -43,7 +43,7 @@ RSpec.describe Confium::OpenPGP do
     it 'raises on non-armored input' do
       expect do
         described_class.dearmor('not armored data')
-      end.to raise_error(RuntimeError)
+      end.to raise_error(Confium::ParseError)
     end
   end
 

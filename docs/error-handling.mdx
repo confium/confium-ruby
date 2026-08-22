@@ -5,17 +5,15 @@ description: The typed Confium::Error hierarchy with 9 subclasses. Rescue patter
 
 # Error handling
 
-Confium failures raise typed error classes. Rescue the specific class
-for the failure you're handling; rescue `Confium::Error` for any typed
-Confium failure as a catch-all.
+Confium failures raise typed error classes — parse failures,
+out-of-range indexes, threshold violations, and verification
+failures from the native extension all carry structured `details`.
+Rescue the specific class for the failure you're handling; rescue
+`Confium::Error` for any Confium-originated failure as a catch-all.
 
-Coverage note: policy and threshold-protocol failures raise typed
-errors with structured details today. Some native validation paths
-(DSL parsing, PEM/DER parsing) still surface as `RuntimeError` with
-a descriptive message — rescue `RuntimeError` for those and prefer
-the result-object APIs (e.g. `PathValidator`, composite
-`VerificationResult`) when you want failures reported rather than
-raised.
+For failures that are better reported than raised, prefer the
+result-object APIs (`PathValidator`, composite `VerificationResult`,
+`MerkleTree#verify_consistency` on a proof you trust).
 
 ## The hierarchy
 
@@ -45,11 +43,11 @@ Every typed error carries:
 
 ```ruby
 begin
-  Confium::Policy.check!("rsa", key_bits: 1024)
-rescue Confium::PolicyViolationError => e
-  warn "Policy violation: #{e.message}"
+  Confium::PKI::Certificate.from_pem(input)
+rescue Confium::ParseError => e
+  warn "Parse failed: #{e.message}"
   warn "Details: #{e.details.inspect}"
-  # => { policy: :eu, violation: :key_too_small }
+  # => { format: "pem", operation: "Certificate.from_pem", ... }
 end
 ```
 
@@ -136,6 +134,12 @@ end
 The shape of `details` is per error class. Real shapes today:
 
 ```ruby
+# ParseError (malformed PEM)
+{ format: "pem", operation: "Certificate.from_pem", component: "Confium" }
+
+# IndexError (proof out of range)
+{ index: 8, operation: "MerkleTree.consistency_proof", component: "Confium" }
+
 # ThresholdError (CMP20 below threshold)
 { have_count: 2, need_count: 3, operation: "Cmp20.sign" }
 

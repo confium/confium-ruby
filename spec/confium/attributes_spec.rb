@@ -12,7 +12,7 @@ RSpec.describe Confium::Attributes do
     it 'raises on a malformed expression' do
       expect do
         described_class.parse('not_a_function(')
-      end.to raise_error(RuntimeError)
+      end.to raise_error(Confium::ParseError)
     end
 
     it 'accepts shallow nesting (32 levels or below)' do
@@ -26,7 +26,7 @@ RSpec.describe Confium::Attributes do
     it 'rejects deep nesting (over MAX_DSL_DEPTH = 32)' do
       expr = 'any("x")'
       100.times { expr = "not(#{expr})" }
-      expect { described_class.parse(expr) }.to raise_error(RuntimeError, /recursion depth/i)
+      expect { described_class.parse(expr) }.to raise_error(Confium::ParseError, /recursion depth/i)
     end
   end
 

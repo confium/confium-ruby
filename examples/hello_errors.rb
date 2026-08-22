@@ -9,7 +9,7 @@
 #   - The typed Confium::Error hierarchy raised from the native
 #     extension (Confium::ThresholdError with structured details)
 #   - The .details accessor on typed errors
-#   - RuntimeError from native validation paths
+#   - Typed parse errors from native validation paths
 #
 
 require 'confium'
@@ -39,14 +39,17 @@ end
 puts "\nError hierarchy:"
 print_hierarchy(Confium::Error)
 
-# Native validation failures surface as RuntimeError with a
-# descriptive message.
+# Native validation failures raise typed errors too — ParseError for
+# malformed input, ArgumentError for bad argument shapes.
 [
   -> { Confium::Attributes.parse('not_a_function(') },
   -> { Confium::Config::Manifest.from_toml('not = = toml') },
   -> { Confium::Composite.sign_ed25519('x' * 16, 'msg') }
 ].each_with_index do |op, i|
   op.call
+rescue Confium::Error => e
+  puts "\n[#{i + 1}] #{e.class}: #{e.message[0, 60]}"
+  puts "      details: #{e.details.inspect}"
 rescue StandardError => e
   puts "\n[#{i + 1}] #{e.class}: #{e.message[0, 60]}"
 end

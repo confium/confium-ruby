@@ -26,7 +26,7 @@ fn native_armor(ruby: &Ruby, data: Value, type_str: Value) -> Result<magnus::RSt
         }
     };
     let armored = armor_bytes(&bytes, ty)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::parse_error(e.to_string(), "OpenPGP.armor", Some("openpgp"), None))?;
     Ok(bytes_to_rstring(ruby, &armored))
 }
 
@@ -34,7 +34,7 @@ fn native_armor(ruby: &Ruby, data: Value, type_str: Value) -> Result<magnus::RSt
 fn native_dearmor(ruby: &Ruby, data: Value) -> Result<magnus::RString, Error> {
     let bytes = bytes_from_value(data)?;
     let raw = dearmor_bytes(&bytes)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::parse_error(e.to_string(), "OpenPGP.dearmor", Some("openpgp"), None))?;
     Ok(bytes_to_rstring(ruby, &raw))
 }
 
