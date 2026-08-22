@@ -10,13 +10,14 @@
 # (ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15), where
 # the vendored C/C++ build compiles natively.
 #
-# One .so cannot span every supported Ruby: rb-sys references
-# ruby_current_vm_ptr when compiled against Ruby <= 3.2, and libruby
-# stopped exporting it in 3.3. Platform gems therefore carry one
-# extension per C-ABI window — 3.1 (loads on 3.1/3.2) and 3.3 (loads
-# on 3.3+) — and lib/confium.rb picks the directory for the running
-# Ruby. The workflow's install-check job loads every supported Ruby
-# (3.1–3.4) before anything can publish.
+# One .so cannot span every supported Ruby: Ruby 3.2 broke the 3.1
+# ABI (object shapes — a 3.1-built extension segfaults on 3.2), and
+# rb-sys references ruby_current_vm_ptr when compiled against
+# Ruby <= 3.2, which libruby stopped exporting in 3.3. Platform gems
+# therefore carry one extension per C-ABI window — exact minors 3.1
+# and 3.2, plus 3.3 (loads on 3.3+) — and lib/confium.rb picks the
+# directory for the running Ruby. The workflow's install-check job
+# loads every supported Ruby (3.1-3.4) before anything can publish.
 #
 # Usage (CI stages lib/confium_native/<window>/ first; locally the
 # task also falls back to the flat `rake compile` output):
@@ -39,7 +40,7 @@ namespace :native_gem do
   desc 'Package the compiled extension as a pre-built platform gem'
   task :package, [:platform] do |_t, args|
     platform = args[:platform] || raise(ArgumentError, 'platform required')
-    windows = Dir['lib/confium_native/{3.1,3.3}/confium_native.{so,bundle}']
+    windows = Dir['lib/confium_native/{3.1,3.2,3.3}/confium_native.{so,bundle}']
     flat = Dir['lib/confium_native/confium_native.{so,bundle}'].first
     if windows.empty?
       # Local flow: packaging the machine's own compile output, so the

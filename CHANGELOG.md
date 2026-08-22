@@ -18,12 +18,13 @@ version that ever existed, so the native gems first appear here.
   platform). Cross-compilation via rake-compiler-dock is impossible
   for this gem: the dock images are Ubuntu 20.04 (gcc 9.4) while the
   vendored RNP stack needs Botan 3.12, which requires gcc 11+.
-- Each platform gem carries one extension per C-ABI window — 3.1
-  (loads on Ruby 3.1/3.2) and 3.3 (loads on 3.3+) — because rb-sys
-  references `ruby_current_vm_ptr` when built against Ruby <= 3.2
-  and libruby stopped exporting it in 3.3. `lib/confium.rb` picks
-  the window for the running Ruby; source builds keep the flat
-  extension path.
+- Each platform gem carries one extension per C-ABI window — exact
+  minors 3.1 and 3.2, plus 3.3 (loads on 3.3+) — because Ruby 3.2
+  broke the 3.1 ABI (a 3.1-built extension segfaults on 3.2) and
+  rb-sys references `ruby_current_vm_ptr` when built against
+  Ruby <= 3.2, which libruby stopped exporting in 3.3.
+  `lib/confium.rb` picks the window for the running Ruby; source
+  builds keep the flat extension path.
 - The release workflow no longer builds a source gem (that burned
   the 0.3.1 version slots against test-and-release.yml's publish),
   refuses to push any gem stamped platform=ruby, and installs each

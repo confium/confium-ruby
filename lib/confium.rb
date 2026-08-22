@@ -13,11 +13,13 @@ require_relative 'confium/version'
 
 begin
   # Pre-built platform gems ship one extension per C-ABI window
-  # (3.1 covers Ruby 3.1/3.2 — rb-sys references the VM pointer that
-  # libruby stopped exporting in 3.3; 3.3 covers 3.3+). Source builds
-  # install the extension flat, without a version directory.
+  # (Ruby 3.2 broke the 3.1 ABI — object shapes — and rb-sys
+  # references the VM pointer libruby stopped exporting in 3.3, so
+  # 3.1 and 3.2 get exact-minor builds while 3.3 covers 3.3+).
+  # Source builds install the extension flat, without a version
+  # directory.
   major, minor = RUBY_VERSION.split('.').first(2).map(&:to_i)
-  window = major > 3 || minor >= 3 ? '3.3' : '3.1'
+  window = major > 3 || minor >= 3 ? '3.3' : "#{major}.#{minor}"
   begin
     require_relative "confium_native/#{window}/confium_native"
   rescue LoadError
