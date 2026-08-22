@@ -6,37 +6,41 @@
 # Run with: ruby examples/hello_policy.rb
 #
 # Demonstrates:
-#   - Confium::Policy jurisdictional algorithm allow-lists
+#   - Confium::Policy jurisdictional algorithm/key-size rules
 #   - FIPS 140 mode toggle
-#   - Policy violation error handling
+#   - Confium::PolicyViolationError details
+#
 
 require 'confium'
 
-# Read current policy.
+# Known jurisdictions and current state.
+puts "Known jurisdictions: #{Confium::Policy.known_jurisdictions.inspect}"
 puts "FIPS mode: #{Confium::Policy.fips_mode}"
-puts "Allowed algorithms: #{Confium::Policy.allowed_algorithms.inspect}"
 
-# Set EU-style jurisdictional policy (P-384+).
-Confium::Policy.configure do |p|
-  p.allowed_algorithms = %w[ECDSA-P384 ECDSA-P521 Ed25519]
-end
-puts "\nEU policy set: #{Confium::Policy.allowed_algorithms.inspect}"
+# Set an EU-style jurisdictional policy (RSA >= 2048, ECDSA P-256+).
+Confium::Policy.jurisdiction = :eu
+puts "\nJurisdiction: #{Confium::Policy.jurisdiction}"
 
-# Try to use a disallowed algorithm.
+puts "RSA-3072 under EU policy: #{Confium::Policy.check!('rsa', key_bits: 3072) ? 'allowed' : 'blocked'}"
+
+# A key below the policy minimum raises a typed PolicyViolationError.
 begin
-  kp = Confium::Composite.generate_ed25519_keypair
-  Confium::Composite.sign_ed25519(kp['private_key'], 'test')
-  puts 'Ed25519 signing: OK (allowed)'
+  Confium::Policy.check!('rsa', key_bits: 1024)
 rescue Confium::PolicyViolationError => e
-  puts 'Ed25519 signing: BLOCKED by policy'
+  puts 'RSA-1024 under EU policy: BLOCKED'
   puts "  Details: #{e.details.inspect}"
 end
 
-# Toggle FIPS mode.
+# FIPS mode: only FIPS-approved algorithms pass.
 Confium::Policy.fips_mode = true
-puts "\nFIPS mode enabled: #{Confium::Policy.fips_mode}"
+puts "\nFIPS mode: #{Confium::Policy.fips_mode}"
+puts "ECDSA P-256 under FIPS: #{Confium::Policy.check!('ecdsa_p256', key_bits: 256) ? 'allowed' : 'blocked'}"
+begin
+  Confium::Policy.check!('ed25519', key_bits: 256)
+rescue Confium::PolicyViolationError => e
+  puts "Ed25519 under FIPS: BLOCKED (#{e.message})"
+end
 
 # Reset for other examples.
-Confium::Policy.fips_mode = false
-Confium::Policy.allowed_algorithms = nil
-puts 'Policy reset to defaults.'
+Confium::Policy.reset!
+puts "\nPolicy reset: jurisdiction=#{Confium::Policy.jurisdiction.inspect}, fips=#{Confium::Policy.fips_mode}"
