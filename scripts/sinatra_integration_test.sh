@@ -75,6 +75,21 @@ BODY=$(curl -sf "$BASE/health")
 check "health ok=true" "$(echo "$BODY" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["ok"]')" "true"
 check "health version non-empty" "$(echo "$BODY" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["version"].to_s.length > 0')" "true"
 
+echo "== POST /verify/composite with a real signature"
+COMPOSITE_JSON=$(bundle exec ruby -e '
+  require "confium"
+  comp = Confium::Composite
+  kp = comp.generate_ed25519_keypair
+  component = comp.sign_ed25519(kp["private_key"], "integration")
+  print Confium::Composite::Signature.components_to_json([component])
+')
+REQUEST=$(ruby -rjson -e '
+  composite = JSON.parse(STDIN.read)
+  print JSON.generate({ "composite" => composite, "message" => "integration".unpack1("H*") })
+' <<<"$COMPOSITE_JSON")
+BODY=$(curl -sf -H "Content-Type: application/json" -X POST -d "$REQUEST" "$BASE/verify/composite")
+check "composite all_verified" "$(echo "$BODY" | ruby -rjson -e 'puts JSON.parse(STDIN.read)["all_verified"]')" "true"
+
 echo "== POST /verify/composite with missing fields"
 RES=$(curl -s -w $'\n%{http_code}\n' \
   -H "Content-Type: application/json" \

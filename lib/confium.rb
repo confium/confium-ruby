@@ -59,6 +59,11 @@ module Confium
   autoload :PKI,                  'confium/pki'
 end
 
+# Eager-load the Composite Signature JSON companion. The native
+# extension defines Confium::Composite; this file reopens the class
+# to add from_json transport.
+require_relative 'confium/composite'
+
 # Eager-load the Audit Ruby companion. The native extension registers
 # `Confium::Audit` as a Ruby module with the `record`/`sink=`/`sink`
 # methods; the companion file defines the Sink class hierarchy on top

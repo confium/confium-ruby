@@ -1,18 +1,22 @@
 ---
 title: Sinatra verifier quickstart
-description: Add Confium to a Sinatra app to verify X.509 certificates and validate chains. A complete ~60-line example with curl test.
+description: Add Confium to a Sinatra app to verify composite signatures and transparency-log inclusion proofs. Based on the tested examples/verifier_sinatra.rb.
 ---
 
 # Sinatra verifier quickstart
 
-This guide walks through adding Confium to a Sinatra app to verify
-X.509 certificates and validate chains.
+This guide walks through adding Confium to a Sinatra app that
+verifies composite multi-algorithm signatures and transparency-log
+inclusion proofs. The complete, integration-tested app lives at
+[`examples/verifier_sinatra.rb`](https://github.com/confium/confium-ruby/blob/main/examples/verifier_sinatra.rb)
+(checked by `scripts/sinatra_integration_test.sh` in CI).
 
 ## Prerequisites
 
 - Ruby >= 3.1
-- Rust stable (`rustup default stable`)
-- A CA certificate in PEM format
+- On the pre-compiled platforms (linux x86_64/aarch64, macOS
+  x86_64/arm64) nothing else; otherwise Rust stable for the source
+  build
 
 ## Setup
 
@@ -30,52 +34,79 @@ require "confium"
 class VerifyApp < Sinatra::Base
   before { content_type :json }
 
-  post "/verify" do
-    cert = Confium::PKI::Certificate.from_pem(request.body.read)
-    root = Confium::PKI::Certificate.from_pem(File.read(ENV.fetch("CA_CERT_PATH")))
-
-    result = Confium::PKI::PathValidator.validate(
-      leaf: cert,
-      intermediates: nil,
-      root: root,
-    )
+  # Composite signature verification. Expects JSON:
+  #   {
+  #     "composite": "<components JSON from Signature.components_to_json>",
+  #     "message":   "<hex bytes of signed message>"
+  #   }
+  post "/verify/composite" do
+    body = JSON.parse(request.body.read)
+    sig = Confium::Composite::Signature.from_json(body.fetch("composite"))
+    result = sig.verify([body.fetch("message")].pack("H*"))
 
     {
-      valid:      result.valid?,
-      subject_cn: cert.fingerprint_sha256[0, 16],
-      not_after:  cert.not_after,
-      errors:     result.check_count,
+      all_verified: result.all_verified?,
+      per_component: result.per_component,
     }.to_json
-  rescue Confium::ParseError => e
-    halt 400, { error: "parse_failed", details: e.details }.to_json
-  rescue Confium::VerificationError => e
-    halt 400, { error: "verification_failed", details: e.details }.to_json
+  rescue KeyError => e
+    halt 400, { error: "missing field: #{e.message}" }.to_json
+  rescue StandardError => e
+    halt 400, { error: e.message }.to_json
   end
 end
 ```
 
-## Run
+`from_json` accepts the JSON string or an already-parsed structure;
+binary fields (`public_key`, `signature`) travel hex-encoded.
 
-```sh
-CA_CERT_PATH=./ca.pem bundle exec ruby -S rackup -o 0.0.0.0 -p 4567
+## Producing a signature to verify
+
+```ruby
+require "confium"
+require "json"
+
+comp = Confium::Composite
+kp = comp.generate_ed25519_keypair
+component = comp.sign_ed25519(kp["private_key"], "hello")
+wire = Confium::Composite::Signature.components_to_json([component])
+
+request = JSON.generate(
+  composite: JSON.parse(wire),
+  message: "hello".unpack1("H*")
+)
 ```
 
 ## Test
 
 ```sh
-curl -X POST http://localhost:4567/verify --data-binary @client.pem
+curl -s -X POST http://localhost:4567/verify/composite \
+  -H "Content-Type: application/json" -d "$request"
 ```
 
 Expected response:
 
 ```json
-{"valid":true,"subject_cn":"a1b2c3d4e5f67890","not_after":"2027-07-27T...","errors":0}
+{"all_verified":true,"per_component":{"0":{"algorithm":"Ed25519","verified":true}}}
+```
+
+## X.509 chain validation
+
+Path validation reports through a result object rather than
+raising:
+
+```ruby
+cert = Confium::PKI::Certificate.from_pem(pem)
+root = Confium::PKI::Certificate.from_pem(File.read("ca.pem"))
+result = Confium::PKI::PathValidator.validate(cert, nil, root)
+result.valid?       # => true | false
+result.check_count  # => Integer
+result.checks_json  # => per-check detail (JSON string)
 ```
 
 ## Next steps
 
-- Add threshold-composite signature verification via
-  `Confium::Composite`.
-- Anchor verified certs in a transparency log via
-  `Confium::Transparency::MerkleTree`.
+- Anchor verified artifacts in a transparency log via
+  `Confium::Transparency::MerkleTree` and serve inclusion proofs.
 - Set up audit logging via `Confium::Audit.sink = ...`.
+- Map typed errors to HTTP statuses — see
+  [Error handling](../error-handling.mdx).

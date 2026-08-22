@@ -1,42 +1,38 @@
 ---
 title: Policy (jurisdictional + FIPS)
-description: Use Confium::Policy to enforce jurisdictional algorithm allow-lists and toggle FIPS 140 mode that routes crypto through FIPS-validated plugins.
+description: Use Confium::Policy to enforce jurisdictional algorithm/key-size rules and toggle FIPS 140 mode.
 ---
 
 # Policy (jurisdictional + FIPS)
 
-`Confium::Policy` is the global hook for two related concerns:
+`Confium::Policy` is the process-wide hook for two related concerns:
 
-1. **Jurisdictional algorithm allow-lists** — restrict which
-   algorithms the engine will use. Driven by deployment policy:
-   EU requires P-384+, US allows P-256, China requires SM2/SM3.
-2. **FIPS 140 mode** — route every crypto operation through a
-   FIPS-validated plugin (e.g. Botan in FIPS mode).
+1. **Jurisdictional rules** — built-in profiles (EU, US, CNML) map
+   each algorithm to a minimum key size; active jurisdiction is
+   enforced by `check!` and by signing/verification paths.
+2. **FIPS 140 mode** — only FIPS-approved algorithms pass (ECDSA
+   P-256/P-384, RSA; Ed25519 is not FIPS-approved).
 
 The policy is process-wide. Set it once at boot; every subsequent
 Confium call honors it.
 
-## Setting a jurisdictional allow-list
+## Setting a jurisdiction
 
 ```ruby
-Confium::Policy.configure do |p|
-  p.allowed_signature_algorithms = %w[
-    ECDSA-P256
-    ECDSA-P384
-    Ed25519
-  ]
-  p.allowed_hash_algorithms = %w[SHA-256 SHA-384 SHA-512]
-end
+Confium::Policy.known_jurisdictions
+# => [:eu, :us, :cnml]
+
+Confium::Policy.jurisdiction = :eu
 ```
 
-Any attempt to sign, verify, or hash with a non-allow-listed
-algorithm raises `Confium::PolicyViolationError`.
+An unknown jurisdiction raises `ArgumentError`. With a jurisdiction
+active, algorithm + key-size checks are enforced:
 
 ```ruby
-Confium::Policy.allowed_signature_algorithms = ["ECDSA-P384"]
-Confium::TC::FrostP256.sign(key, "msg")
+Confium::Policy.check!('rsa', key_bits: 3072)   # => true
+Confium::Policy.check!('rsa', key_bits: 1024)
 # => Confium::PolicyViolationError:
-#     disallowed algorithm "ECDSA-P256" (allowed: ["ECDSA-P384"])
+#     rsa key size 1024 below 2048 for eu
 ```
 
 ## FIPS mode
@@ -45,81 +41,44 @@ Confium::TC::FrostP256.sign(key, "msg")
 Confium::Policy.fips_mode = true
 ```
 
-In FIPS mode:
-
-- The engine refuses to use any non-FIPS-validated crypto plugin.
-- The Botan plugin (when present in FIPS-validated build) is the
-  preferred backend.
-- Legacy algorithms (SHA-1, RSA-1024, etc.) are rejected even if
-  allow-listed.
-
-Combine with a jurisdictional allow-list for the strongest policy:
+In FIPS mode only FIPS-approved algorithms pass; enabling FIPS mode
+without a jurisdiction implies the US (NIST SP 800-131A) profile:
 
 ```ruby
-Confium::Policy.configure do |p|
-  p.fips_mode = true
-  p.allowed_signature_algorithms = %w[ECDSA-P256 ECDSA-P384 RSA-3072]
-end
+Confium::Policy.check!('ed25519', key_bits: 256)
+# => Confium::PolicyViolationError:
+#     algorithm ed25519 is not FIPS-approved
+Confium::Policy.check!('ecdsa_p256', key_bits: 256)  # => true
 ```
 
-## Deployment manifest
+Legacy algorithms (SHA-1, RSA-1024) are rejected under every
+built-in jurisdiction.
 
-The deployment manifest (`Confium::Config::Manifest`) is the
-declarative counterpart — you write the policy into a TOML file:
+## Resetting
 
-```toml
-[policy]
-fips_mode = true
-allowed_signature_algorithms = ["ECDSA-P256", "ECDSA-P384"]
-allowed_hash_algorithms = ["SHA-256", "SHA-384"]
-```
-
-Load at boot:
+Tests and REPLs can restore defaults:
 
 ```ruby
-manifest = Confium::Config::Manifest.from_file("config/deploy.toml")
-manifest.apply!
+Confium::Policy.reset!   # jurisdiction=nil, fips_mode=false
 ```
-
-This sets `Confium::Policy` from the file's `[policy]` section.
 
 ## Per-call override (anti-pattern)
 
 `Policy` is intentionally global. There is no per-call override. If
-you need to perform an operation that the policy disallows, the right
-answer is to change the policy deliberately, not to bypass it.
+you need to perform an operation that the policy disallows, the
+right answer is to change the policy deliberately, not to bypass it.
 
-## Common jurisdictional profiles
+## Deployment manifest
 
-### EU (P-384+)
-
-```ruby
-Confium::Policy.configure do |p|
-  p.allowed_signature_algorithms = %w[ECDSA-P384 ECDSA-P521]
-  p.allowed_hash_algorithms = %w[SHA-384 SHA-512]
-end
-```
-
-### US (P-256 OK)
+The deployment manifest (`Confium::Config::Manifest`) is the
+declarative counterpart for quorum/tier topology. It parses TOML
+directly:
 
 ```ruby
-Confium::Policy.configure do |p|
-  p.allowed_signature_algorithms = %w[ECDSA-P256 ECDSA-P384 Ed25519]
-  p.allowed_hash_algorithms = %w[SHA-256 SHA-384 SHA-512]
-end
+manifest = Confium::Config::Manifest.from_toml(File.read('config/deploy.toml'))
+manifest.valid?        # => true
+manifest.validate      # => [] (list of problems, empty when valid)
 ```
-
-### China (SM2/SM3)
-
-```ruby
-Confium::Policy.configure do |p|
-  p.allowed_signature_algorithms = %w[SM2]
-  p.allowed_hash_algorithms = %w[SM3]
-end
-```
-
-(SM2/SM3 support requires the SM plugin bundle; the engine rejects
-these algorithms if the plugin is not loaded.)
 
 ## Related
 

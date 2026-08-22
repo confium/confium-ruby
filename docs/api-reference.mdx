@@ -14,7 +14,7 @@ which are the source of truth.
 
 ```
 Confium
-├── version, core_version          # version strings
+├── VERSION, core_version, Native   # version strings + extension status
 ├── SecureBytes                    # zeroize-on-clear byte wrapper
 ├── Policy                         # jurisdictional + FIPS hooks
 ├── Error                          # root of typed error hierarchy
@@ -29,9 +29,8 @@ Confium
 │   └── PolicyViolationError
 ├── PKI
 │   ├── Certificate
-│   ├── CertificateRequest
+│   ├── CSR
 │   ├── PathValidator
-│   ├── CNML                       # CNML certificate profile
 │   ├── CMS
 │   │   └── SignedData
 │   └── XMLDSig
@@ -39,9 +38,7 @@ Confium
 │   └── Signature
 ├── Transparency
 │   ├── MerkleTree
-│   ├── InclusionProof
-│   ├── TreeHead
-│   └── OTS                        # OpenTimestamps client (stub)
+│   └── InclusionProof
 ├── Attributes
 │   └── Predicate                  # attribute-based threshold DSL
 ├── TC
@@ -50,8 +47,7 @@ Confium
 │   ├── Cmp20                      # CMP20 threshold ECDSA (in-process)
 │   └── Gg18                       # GG18 threshold ECDSA (in-process)
 ├── Identity
-│   ├── Actor                      # manufacturer, lab, director, etc.
-│   └── Backend                    # pluggable identity source
+│   └── Actor                      # manufacturer, lab, director, etc.
 └── Config
     └── Manifest                   # deployment manifest (TOML)
 ```
@@ -59,8 +55,10 @@ Confium
 ## Confium (top-level)
 
 ```ruby
-Confium.version        # => "0.1.0"
-Confium.core_version   # => "0.2.0" (underlying confium-core)
+Confium::VERSION        # => "0.3.2"
+Confium.core_version    # => confium-core version the extension was built against
+Confium::Native.version # => extension version
+Confium::Native.loaded? # => true
 ```
 
 ## Confium::SecureBytes
@@ -70,35 +68,35 @@ explicit `clear`. Use it for any secret material (private keys,
 shares, nonces).
 
 ```ruby
-secret = Confium::SecureBytes.from_hex("a1b2c3...")
-bytes = secret.to_bytes   # => String (binary encoding)
-secret.clear              # zeroizes immediately
+secret = Confium::SecureBytes.wrap(binary_string)
+secret.bytes    # => String (binary encoding)
+secret.bytes!   # => same, but clears the wrapper's copy
+secret.length   # => Integer
+secret.clear    # zeroizes immediately
+secret.cleared? # => true
 ```
 
 ## Confium::PKI::Certificate
 
 ```ruby
 cert = Confium::PKI::Certificate.from_pem(File.read("cert.pem"))
-cert.subject_cn              # => "example.com"
-cert.issuer_cn               # => "Confium CA"
-cert.not_before              # => Time
-cert.not_after               # => Time
-cert.fingerprint_sha256      # => String (hex)
-cert.public_key_algorithm    # => "Ed25519" | "ECDSA-P256" | ...
-cert.public_key_bytes        # => String (binary)
+cert.not_before           # => Time
+cert.not_after            # => Time
+cert.fingerprint_sha256   # => String (hex)
+cert.serial_hex           # => String
+cert.public_key_bytes     # => String (binary)
+cert.valid_at?(iso8601)   # => true | false
+cert.to_der / cert.to_pem
 ```
 
 ## Confium::PKI::PathValidator
 
 ```ruby
-result = Confium::PKI::PathValidator.validate(
-  leaf: cert,
-  intermediates: [inter_cert],
-  root: root_cert,
-)
-result.valid?         # => true | false
-result.check_count    # => integer
-result.errors         # => Array<Hash>
+result = Confium::PKI::PathValidator.validate(leaf_cert, nil, root_cert)
+# (leaf, intermediates, root [, time_iso8601]) — positional
+result.valid?        # => true | false
+result.check_count   # => Integer
+result.checks_json   # => String (per-check detail)
 ```
 
 ## Confium::Composite::Signature
@@ -107,10 +105,27 @@ Composite multi-algorithm signature for PQ migration. See
 [the PQ migration guide](./pq-migration/composite-signatures.mdx).
 
 ```ruby
-sig = Confium::Composite::Signature.from_json(json_string)
-result = sig.verify(message_bytes, verifiers_hash)
-result.all_verified?    # => true | false
-result.per_component    # => { "Ed25519" => true, ... }
+kp = Confium::Composite.generate_ed25519_keypair
+component = Confium::Composite.sign_ed25519(kp["private_key"], message)
+
+sig = Confium::Composite::Signature.new([component])
+sig.component_count # => Integer
+sig.algorithms      # => ["Ed25519", ...]
+
+result = sig.verify(message)
+result.all_verified?  # => true | false
+result.per_component  # => { 0 => { "algorithm" => "Ed25519", "verified" => true } }
+```
+
+### JSON transport
+
+```ruby
+# Producer: hex-encodes the binary fields for the wire.
+json = Confium::Composite::Signature.components_to_json(components)
+
+# Consumer: accepts a JSON string or parsed Array/{"components": [...]}.
+sig = Confium::Composite::Signature.from_json(json)
+sig.verify(message)
 ```
 
 ## Confium::Transparency::MerkleTree
@@ -119,33 +134,40 @@ Append-only Merkle tree (RFC 6962).
 
 ```ruby
 tree = Confium::Transparency::MerkleTree.new
-seq = tree.append(artifact_type: :certificate_issuance,
-                  artifact_hash: hash_bytes)
-tree.root             # => String (32 bytes)
+seq = tree.append(hash_bytes_32)   # 32-byte binary String
+tree.root             # => String (32 bytes, binary)
 tree.size             # => integer
 
 proof = tree.inclusion_proof(seq)
 proof.sequence        # => integer
-proof.steps           # => Array of { sibling:, side: }
+proof.steps           # => proof step list
+proof.verify(tree.root)  # => true | false
+proof.verify_with_leaf(leaf_hash, root)  # => true | false
 
-tree.verify_inclusion(entry: entry_hash, proof: proof, root: root_bytes)
-# => true | raises Confium::VerificationError
+tree.verify_consistency(old_root, new_root, old_size, new_size, proof)
+# => true | raises
 ```
 
 ## Confium::Attributes::Predicate
 
-Attribute-based threshold predicate DSL. Supports "T-of-N directors
-from K distinct regions".
+Attribute-based threshold predicate DSL — function-call form over
+signer attributes.
 
 ```ruby
-predicate = Confium::Attributes::Predicate.parse(<<~DSL)
-  3-of-5 directors
-  from 3 distinct regions
-DSL
+predicate = Confium::Attributes.parse(
+  'and(min_count("role:director", 3), min_distinct("region", 3))'
+)
 
-predicate.satisfied?(actors: directors, attributes: { region: ... })
-# => true | false
+alice = Confium::Attributes::Signer.new
+alice.add("role:director", "yes")
+alice.add("region", "europe")
+
+predicate.satisfied_by?([alice, bob, carol])  # => true | false
 ```
+
+DSL: `min_count("attr", n)`, `min_distinct("attr", n)`,
+`any("attr")`, `all("attr")`, `none("attr")`, `and(...)`, `or(...)`,
+`not(p)` — nesting up to 32 levels.
 
 ## Confium::TC::FrostP256
 
@@ -241,22 +263,28 @@ Paillier-based MtA, which is tracked separately under
 
 ## Confium::Config::Manifest
 
-Deployment manifest (TOML) describing signers, quorum, policies.
+Deployment manifest (TOML) describing the deployment, tiers, and quorums.
 
 ```ruby
-manifest = Confium::Config::Manifest.from_file("deploy.toml")
-manifest.signers       # => Array<Hash>
-manifest.quorum        # => { t:, n: }
-manifest.policy        # => Confium::Policy
+manifest = Confium::Config::Manifest.from_toml(toml_string)
+manifest.deployment_name  # => String
+manifest.operator         # => String
+manifest.tier_count       # => Integer
+manifest.tier_name_at(i)  # => String (IndexError when out of range)
+manifest.quorum_count     # => Integer
+manifest.validate         # => Array<String> — problems, empty when valid
+manifest.valid?           # => Boolean
 ```
 
 ## Confium::Policy
 
-Jurisdictional algorithm allow-lists and FIPS mode toggle.
+Jurisdictional algorithm/key-size rules and FIPS mode toggle.
 
 ```ruby
-Confium::Policy.fips_mode = true   # routes via FIPS-validated plugin
-Confium::Policy.allowed_algorithms = ["Ed25519", "ECDSA-P256"]
+Confium::Policy.jurisdiction = :eu        # or :us, :cnml
+Confium::Policy.fips_mode = true
+Confium::Policy.check!('ecdsa_p256', key_bits: 256)  # => true / raises
+Confium::Policy.reset!
 ```
 
 See [the policy page](./policy.mdx) for details.
