@@ -39,19 +39,27 @@ namespace :native_gem do
   desc 'Package the compiled extension as a pre-built platform gem'
   task :package, [:platform] do |_t, args|
     platform = args[:platform] || raise(ArgumentError, 'platform required')
-    expected = Gem::Platform.new(platform)
-    runner = Gem::Platform.new(RbConfig::CONFIG['arch'])
-    # Gem::Platform#=== performs platform matching (nil fields are wildcards).
-    matches = expected === runner # rubocop:disable Style/CaseEquality
-    raise "refusing to stamp #{expected}: this machine is #{runner}" unless matches
-
     windows = Dir['lib/confium_native/{3.1,3.3}/confium_native.{so,bundle}']
     flat = Dir['lib/confium_native/confium_native.{so,bundle}'].first
-    binaries = windows.empty? ? [flat].compact : windows
-    raise 'extension not compiled; run `rake compile` first' if binaries.empty?
+    if windows.empty?
+      # Local flow: packaging the machine's own compile output, so the
+      # runner arch must match the requested platform. CI instead stages
+      # per-window binaries built by the platform-matched build matrix.
+      expected = Gem::Platform.new(platform)
+      runner = Gem::Platform.new(RbConfig::CONFIG['arch'])
+      # Gem::Platform#=== performs platform matching (nil fields are wildcards).
+      matches = expected === runner # rubocop:disable Style/CaseEquality
+      raise "refusing to stamp #{expected}: this machine is #{runner}" unless matches
+
+      raise 'extension not compiled; run `rake compile` first' unless flat
+
+      binaries = [flat]
+    else
+      binaries = windows
+    end
 
     spec = Gem::Specification.load('confium.gemspec')
-    spec.platform = expected
+    spec.platform = Gem::Platform.new(platform)
     # Pre-built gem: ship the compiled extension instead of the Rust
     # sources (the vendored RNP tree would bloat every platform
     # gem) and run no extconf at install time. rb_sys exists for
