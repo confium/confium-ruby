@@ -29,10 +29,11 @@ without any one of them holding the full signing key.
 ```ruby
 require "confium"
 
-manifest = Confium::Config::Manifest.from_file("config/cnml.toml")
-manifest.signers       # => Array<Hash> with one entry per signer
-manifest.quorum        # => { t: 3, n: 5 } — 3 of 5 must sign
-manifest.policy        # => Confium::Policy with algorithm allow-list
+manifest = Confium::Config::Manifest.from_toml(File.read("config/cnml.toml"))
+manifest.deployment_name  # => "CNML Pilot Deployment"
+manifest.tier_count       # => 2 (Manufacturer, BIML Directors)
+manifest.quorum_count     # => 1
+manifest.validate         # => [] — no problems
 ```
 
 The TOML format is documented in the
@@ -42,8 +43,9 @@ The TOML format is documented in the
 
 ```ruby
 subject = Confium::PKI::Certificate.from_pem(File.read("certificates/subject.pem"))
-subject.subject_cn          # => "Acme Weighing Scale Model X-100"
+subject.serial_hex          # => "01:AB:..."
 subject.fingerprint_sha256  # => "..."
+subject.valid_at?(Time.now.utc.iso8601)  # => true
 ```
 
 ### 3. Assemble the CMS SignedData
@@ -53,11 +55,14 @@ body. The signing happens server-side via the threshold-ECDSA
 machinery (`Confium::TC::Cmp20` or `Confium::TC::Gg18`):
 
 ```ruby
-kg = Confium::TC::Cmp20.keygen(manifest.quorum[:n], manifest.quorum[:n])
-quorum_shares = kg["shares"].first(manifest.quorum[:t])
+# The manifest's quorum definition (3-of-5 here) drives the protocol
+# parameters:
+t, n = 3, 5
+kg = Confium::TC::Cmp20.keygen(t, n)
+quorum_shares = kg["shares"].first(t)
 
 # Each signer runs this independently:
-signature = Confium::TC::Cmp20.sign(quorum_shares, manifest.quorum[:t], subject.to_der)
+signature = Confium::TC::Cmp20.sign(quorum_shares, t, subject.to_der)
 ```
 
 The signatures are then wrapped into a CMS SignedData envelope using
@@ -70,11 +75,13 @@ transparency log so third parties can verify they have the complete
 set of issued certificates:
 
 ```ruby
+require "digest"
+
 tree = Confium::Transparency::MerkleTree.new
-seq = tree.append(
-  artifact_type: :certificate_issuance,
-  artifact_hash: subject.fingerprint_sha256_bytes,
-)
+cert_hash = Digest::SHA256.digest(subject.to_der)  # 32-byte binary
+seq = tree.append(cert_hash)
+proof = tree.inclusion_proof(seq)
+proof.verify(tree.root)  # => true
 ```
 
 ### 5. Verify (browser-side, optionally)
@@ -107,8 +114,9 @@ Confium::Audit.record(
 ## Policy enforcement
 
 ```ruby
-Confium::Policy.allowed_algorithms = ["CMP20-ECDSA-P256", "GG18-ECDSA-P256"]
-Confium::Policy.fips_mode = false  # CNML doesn't require FIPS
+Confium::Policy.jurisdiction = :cnml  # BIPM-aligned profile
+Confium::Policy.fips_mode = false     # CNML doesn't require FIPS
+Confium::Policy.check!("ecdsa_p256", key_bits: 256)  # => true
 ```
 
 See [the policy page](./policy.mdx) for the full policy surface.

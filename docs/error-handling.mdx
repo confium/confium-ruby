@@ -5,10 +5,17 @@ description: The typed Confium::Error hierarchy with 9 subclasses. Rescue patter
 
 # Error handling
 
-Every failure mode in Confium has a typed error class. There are no
-bare `RuntimeError` raises. Rescue the specific class for the
-specific failure you're handling; rescue `Confium::Error` for any
-Confium-originated failure as a catch-all.
+Confium failures raise typed error classes. Rescue the specific class
+for the failure you're handling; rescue `Confium::Error` for any typed
+Confium failure as a catch-all.
+
+Coverage note: policy and threshold-protocol failures raise typed
+errors with structured details today. Some native validation paths
+(DSL parsing, PEM/DER parsing) still surface as `RuntimeError` with
+a descriptive message — rescue `RuntimeError` for those and prefer
+the result-object APIs (e.g. `PathValidator`, composite
+`VerificationResult`) when you want failures reported rather than
+raised.
 
 ## The hierarchy
 
@@ -26,11 +33,11 @@ StandardError
     └── PolicyViolationError  # jurisdictional / FIPS policy violation
 ```
 
-Every error carries:
+Every typed error carries:
 
 - `message` — human-readable description.
-- `details` — Hash with structured context (which cert, which
-  algorithm, which check failed).
+- `details` — Hash with structured context (which check failed, with
+  what counts).
 
 ## Rescue patterns
 
@@ -38,23 +45,38 @@ Every error carries:
 
 ```ruby
 begin
-  Confium::PKI::Certificate.from_pem(input)
-rescue Confium::ParseError => e
-  warn "Parse failed: #{e.message}"
+  Confium::Policy.check!("rsa", key_bits: 1024)
+rescue Confium::PolicyViolationError => e
+  warn "Policy violation: #{e.message}"
   warn "Details: #{e.details.inspect}"
+  # => { policy: :eu, violation: :key_too_small }
 end
 ```
 
-### Multiple specific types
+Threshold protocols raise `ThresholdError` with the counts in both
+accessors and `details`:
 
 ```ruby
 begin
-  result = Confium::PKI::PathValidator.validate(leaf: cert, root: root)
-rescue Confium::ParseError => e
-  halt 400, { error: "parse_failed", details: e.details }.to_json
-rescue Confium::VerificationError => e
-  halt 400, { error: "verification_failed", details: e.details }.to_json
+  Confium::TC::Cmp20.sign(kg["shares"].first(2), 3, "msg")
+rescue Confium::ThresholdError => e
+  e.have_count  # => 2
+  e.need_count  # => 3
 end
+```
+
+### Result objects instead of exceptions
+
+Path and signature verification report through result objects:
+
+```ruby
+result = Confium::PKI::PathValidator.validate(leaf, nil, root_cert)
+result.valid?        # => Boolean
+result.check_count   # => Integer
+
+verification = Confium::Composite::Signature.new(components).verify(msg)
+verification.all_verified?         # => Boolean
+verification.per_component         # => { 0 => { "algorithm" => ..., "verified" => ... } }
 ```
 
 ### Catch-all
@@ -63,8 +85,8 @@ end
 begin
   do_confium_thing
 rescue Confium::Error => e
-  # Any Confium-originated failure.
-  halt 500, { error: e.class.name.demodulize.underscore, details: e.details }.to_json
+  # Any typed Confium failure.
+  warn "#{e.class}: #{e.message} — #{e.details.inspect}"
 end
 ```
 
@@ -103,7 +125,7 @@ end
 error Confium::Error do
   err = env["sinatra.error"]
   status confium_error_status(err)
-  { error: err.class.name.demodulize.underscore,
+  { error: err.class.name.split("::").last.downcase,
     message: err.message,
     details: err.details }.to_json
 end
@@ -111,24 +133,17 @@ end
 
 ## Inspecting `details`
 
-The shape of `details` is per-error-class. Some examples:
+The shape of `details` is per error class. Real shapes today:
 
 ```ruby
-# ParseError
-{ input_type: "pem", offset: 234, expected: "CERTIFICATE" }
+# ThresholdError (CMP20 below threshold)
+{ have_count: 2, need_count: 3, operation: "Cmp20.sign" }
 
-# VerificationError (signature)
-{ algorithm: "Ed25519", public_key_fingerprint: "ab12..." }
+# PolicyViolationError (key below jurisdictional minimum)
+{ policy: :eu, violation: :key_too_small }
 
-# VerificationError (path validation)
-{ chain_index: 2, check: "name_constraints", violated_constraint: "..." }
-
-# ThresholdError
-{ session_id: "abc123", round: 2, signer: "director-3" }
-
-# PolicyViolationError
-{ policy: "fips_mode", disallowed_algorithm: "Ed25519",
-  allowed: ["ECDSA-P256", "RSA-3072"] }
+# PolicyViolationError (non-FIPS algorithm in FIPS mode)
+{ policy: :fips, violation: :unapproved_algorithm }
 ```
 
 Code that reads `details` should treat the keys as advisory and
@@ -136,11 +151,11 @@ defensively check for presence — new keys may be added in any release.
 
 ## Anti-patterns
 
-- **Rescuing `StandardError`**: too broad. Always rescue
-  `Confium::Error` at minimum so non-Confium exceptions propagate.
+- **Rescuing `StandardError`**: too broad. Rescue `Confium::Error` at
+  minimum so non-Confium exceptions propagate.
 - **String-matching `e.message`**: errors carry structured `details`
   for a reason. Inspect the Hash, not the prose.
 - **Silently swallowing**: at minimum log the error class and
   `details`. Silent rescues hide real bugs.
-- **Reraising as `RuntimeError`**: lose the type. Re-raise the same
-  error or wrap with `Confium::CryptoError.new(cause: original)`.
+- **Reraising untyped**: preserve the type — re-raise the same error
+  or wrap it with a typed class carrying the original in `details`.

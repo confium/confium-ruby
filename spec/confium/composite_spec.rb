@@ -73,4 +73,40 @@ RSpec.describe Confium::Composite do
       expect(result.all_verified?).to be(true)
     end
   end
+
+  describe 'JSON transport' do
+    let(:kp) { described_class.generate_ed25519_keypair }
+    let(:component) { described_class.sign_ed25519(kp['private_key'], 'transported') }
+
+    describe '.components_to_json / .from_json' do
+      it 'round-trips through a bare array' do
+        json = described_class::Signature.components_to_json([component])
+        sig = described_class::Signature.from_json(json)
+        expect(sig.algorithms).to eq(['Ed25519'])
+        expect(sig.verify('transported').all_verified?).to be(true)
+      end
+
+      it 'round-trips through a {"components": [...]} envelope' do
+        array = JSON.parse(described_class::Signature.components_to_json([component]))
+        sig = described_class::Signature.from_json(JSON.generate('components' => array))
+        expect(sig.verify('transported').all_verified?).to be(true)
+      end
+
+      it 'hex-encodes binary fields on the wire' do
+        json = JSON.parse(described_class::Signature.components_to_json([component]))
+        expect(json[0]['public_key']).to match(/\A[0-9a-f]{64}\z/)
+        expect(json[0]['signature']).to match(/\A[0-9a-f]{128}\z/)
+      end
+
+      it 'rejects an empty components array' do
+        expect { described_class::Signature.from_json('[]') }
+          .to raise_error(ArgumentError, /non-empty/)
+      end
+
+      it 'rejects an envelope without components' do
+        expect { described_class::Signature.from_json('{}') }
+          .to raise_error(ArgumentError, /non-empty/)
+      end
+    end
+  end
 end
