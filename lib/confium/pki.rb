@@ -9,5 +9,7 @@
 module Confium
   module PKI
     autoload :CMS, 'confium/pki/cms'
+    autoload :CertificateBuilder, 'confium/pki/certificate_builder'
+    autoload :CNML, 'confium/pki/cnml'
   end
 end

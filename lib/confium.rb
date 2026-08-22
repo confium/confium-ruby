@@ -18,8 +18,7 @@ begin
   # 3.1 and 3.2 get exact-minor builds while 3.3 covers 3.3+).
   # Source builds install the extension flat, without a version
   # directory.
-  major, minor = RUBY_VERSION.split('.').first(2).map(&:to_i)
-  window = major > 3 || minor >= 3 ? '3.3' : "#{major}.#{minor}"
+  window = Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3') ? '3.3' : RUBY_VERSION[/\A\d+\.\d+/]
   begin
     require_relative "confium_native/#{window}/confium_native"
   rescue LoadError
@@ -56,13 +55,20 @@ module Confium
   autoload :PolicyViolationError, 'confium/errors/policy_violation_error'
   autoload :SecureBytes,          'confium/secure_bytes'
   autoload :Policy,               'confium/policy'
-  autoload :PKI,                  'confium/pki'
+  # PKI is native-defined, so an autoload would never fire; the
+  # namespace file is eager-required and registers the pure-Ruby
+  # submodules (CMS, CertificateBuilder, CNML) as autoloads.
+  require_relative 'confium/pki'
 end
 
 # Eager-load the Composite Signature JSON companion. The native
 # extension defines Confium::Composite; this file reopens the class
 # to add from_json transport.
 require_relative 'confium/composite'
+
+# Eager-load the Transparency namespace for the OTS autoload (the
+# module itself is native-defined).
+require_relative 'confium/transparency'
 
 # Eager-load the Audit Ruby companion. The native extension registers
 # `Confium::Audit` as a Ruby module with the `record`/`sink=`/`sink`

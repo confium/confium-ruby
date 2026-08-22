@@ -68,6 +68,7 @@ module Confium
       attr_reader :records
 
       def initialize
+        # @type ivar @records: Array[untyped]
         @records = []
       end
 

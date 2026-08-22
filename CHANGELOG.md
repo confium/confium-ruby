@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `Confium::Composite::Signature.components_to_json` /
+  `.from_json` — JSON transport for composite signatures with the
+  binary fields hex-encoded on the wire (fixes the Sinatra example's
+  happy path, which called a `from_json` that did not exist).
+- Steep type checking in CI: the Steepfile never loaded before
+  (it used a `configure_code_diagnostics` API that does not exist in
+  steep 1.10). `sig/confium.rbs` now covers Policy, SecureBytes,
+  PathValidator, the typed error hierarchy, Audit sinks, OpenPGP,
+  ERS, OTS, CNML, CMS builders, ShareFile, and Cmp20/Gg18, and
+  `bundle exec steep check` is green and enforced.
+
+### Fixed
+
+- `Confium::PKI::CMS::SignedDataBuilder#build` raised KeyError on
+  the ECDSA-P256 path (`FrostP256.sign` returns `der`/`fixed`, not
+  `signature`); it now uses the DER form, which is what CMS carries.
+- `Confium::PKI::CertificateBuilder`, `Confium::PKI::CNML`, and
+  `Confium::Transparency::OTS` were unreachable after
+  `require "confium"` (missing autoload wiring); the PKI namespace
+  file is now eager-required and registers them.
+- All five `hello_*` quickstart examples, the Sinatra example's
+  happy path, and every page under `docs/` were rewritten against
+  the real APIs (see the docs audit), and CI now runs every example
+  on every push.
+
 ## [0.3.2] — 2026-08-22
 
 Native platform gems (linux x86_64/aarch64, macOS x86_64/arm64) ship

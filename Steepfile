@@ -2,29 +2,30 @@
 
 # Steepfile for RBS type checking of the confium Ruby gem.
 #
-# Run `bundle exec steep check` to type-check the gem's Ruby code
-# against the signatures in sig/. The native extension classes are
-# defined in Rust via magnus; this Steepfile only checks the pure-Ruby
-# portion (`lib/confium.rb`) — the Rust-exposed classes are typed
-# via sig/confium.rbs and surface in consumer code that uses them.
+# Run `bundle exec steep check` to type-check the gem's pure-Ruby
+# code against the signatures in sig/. The native extension classes
+# are defined in Rust via magnus; their signatures live in
+# sig/confium.rbs and are enforced through how lib/ uses them.
+#
+# Spec files are not checked: RSpec's DSL has no RBS signatures, so
+# type-checking specs is noise.
 
 target :lib do
   signature 'sig'
+  library 'json'
+  library 'fileutils'
 
-  check 'lib/confium.rb'
-  check 'lib/confium/version.rb'
+  check 'lib'
+
+  # FFI-layer files: the ffi gem has no RBS signatures, so these can
+  # never type-check. They are exercised by the spec suite instead.
+  ignore 'lib/confium/lib.rb'
+  ignore 'lib/confium/ffi.rb'
+  ignore 'lib/confium/digest.rb'
+  ignore 'lib/confium/cfm.rb'
+
+  # TC session machinery — typed as a follow-up.
+  ignore 'lib/confium/tc/session.rb'
+  ignore 'lib/confium/tc/coordinator.rb'
+  ignore 'lib/confium/tc/session_stub.rb'
 end
-
-target :specs do
-  signature 'sig'
-  check 'spec/confium/transparency_spec.rb'
-  check 'spec/confium/composite_spec.rb'
-  check 'spec/confium/attributes_spec.rb'
-  check 'spec/confium/pki_spec.rb'
-  check 'spec/confium/deployment_spec.rb'
-  check 'spec/confium/tc_spec.rb'
-  check 'spec/integration_cnml_workflow_spec.rb'
-end
-
-# Configure library paths so steep can find the gem's own requires.
-configure_code_diagnostics(Diagnostic.new)

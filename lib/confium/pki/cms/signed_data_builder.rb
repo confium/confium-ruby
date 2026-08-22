@@ -33,6 +33,7 @@ module Confium
 
         def initialize
           @content = nil
+          # @type ivar @signers: Array[Hash[Symbol, untyped]]
           @signers = []
         end
 
@@ -81,7 +82,9 @@ module Confium
             result.fetch('signature')
           when :ecdsa_p256
             result = Confium::TC::FrostP256.sign(private_key, payload)
-            result.fetch('signature')
+            # CMS carries ECDSA signatures DER-encoded (DSA-Sig-Value);
+            # FrostP256.sign returns { "der" => ..., "fixed" => ... }.
+            result.fetch('der')
           else
             raise ArgumentError, "unsupported algorithm: #{algorithm.inspect}"
           end
