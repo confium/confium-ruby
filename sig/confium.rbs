@@ -7,6 +7,155 @@ module Confium
   end
 
   def self.core_version: () -> String
+
+  # Bridge into the FFI layer used by the Digest/CFM companions.
+  def self.call_ffi: (Symbol function, *untyped args) -> untyped
+
+  class Error < StandardError
+    attr_reader details: Hash[Symbol, untyped]
+
+    def initialize: (?String? message, ?details: Hash[Symbol, untyped]) -> void
+    def to_h: () -> Hash[Symbol, untyped]
+  end
+
+  class ParseError < Error
+    attr_reader format: String?
+    attr_reader offset: Integer?
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class ValidationError < Error
+    attr_reader param: String?
+    attr_reader expected: String?
+    attr_reader actual: String?
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class VerificationError < Error
+    attr_reader signer_index: Integer?
+    attr_reader algorithm: String?
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class ThresholdError < Error
+    attr_reader have_count: Integer?
+    attr_reader need_count: Integer?
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class CryptoError < Error
+    attr_reader primitive: String?
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class NotFoundError < Error
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class IndexError < Error
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class UnresolvedSignerError < Error
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  class PolicyViolationError < Error
+    attr_reader policy: Symbol?
+    attr_reader violation: Symbol?
+    def initialize: (?String? message, ?Hash[Symbol, untyped]? details_hash, **untyped kwargs) -> void
+  end
+
+  module Errors
+    # Normalizes the (message, details_hash, **kwargs) constructor
+    # forms used by the typed error subclasses.
+    module Coerce
+      def self.args: (untyped message, untyped details_hash, Hash[Symbol, untyped] kwargs) -> [ String?, Hash[Symbol, untyped] ]
+      def args: (untyped message, untyped details_hash, Hash[Symbol, untyped] kwargs) -> [ String?, Hash[Symbol, untyped] ]
+    end
+  end
+
+  module Crypto
+    def self.register: (Symbol name, untyped klass) -> untyped
+    def self.lookup: (Symbol name) -> untyped
+    def self.interfaces: () -> Array[Symbol]
+  end
+
+  module Policy
+    JURISDICTIONS: Hash[Symbol, Hash[Symbol, untyped]]
+
+    def self.jurisdiction: () -> Symbol?
+    def self.jurisdiction=: (Symbol? value) -> Symbol?
+    def self.fips_mode: () -> bool
+    def self.fips_mode=: (bool value) -> bool
+    def self.check!: (String | Symbol algorithm, key_bits: Integer) -> bool
+    def self.known_jurisdictions: () -> Array[Symbol]
+    def self.reset!: () -> void
+  end
+
+  class SecureBytes
+    class ClearedError < Error
+      def initialize: (?String message) -> void
+    end
+
+    def self.wrap: (String raw) -> SecureBytes
+    def initialize: (String raw) -> void
+    def bytes: () -> String
+    def bytes!: () -> String
+    def clear: () -> void
+    def cleared?: () -> bool
+    def length: () -> Integer
+    def size: () -> Integer
+
+    private
+
+    # Returns the (callable) finalize method; ObjectSpace accepts
+    # any callable as a finalizer.
+    def finalizer_proc: () -> untyped
+
+    def finalize: (untyped id) -> void
+  end
+
+  module Audit
+    def self.record: (String operation, String actor_id, String status, String? detail, String? algorithm, String? outcome) -> void
+    def self.sink: () -> Sink?
+    def self.sink=: (Sink? sink) -> void
+    def self.enabled?: () -> bool
+
+    # Base class for audit sinks. The native extension dispatches
+    # records by calling `.call(record)`.
+    class Sink
+      def write: (untyped record) -> void
+      def call: (untyped record) -> void
+      def close: () -> void
+    end
+
+    class MemorySink < Sink
+      include Enumerable[untyped]
+      def initialize: () -> void
+      def records: () -> Array[untyped]
+      def clear: () -> void
+      def each: () { (untyped record) -> void } -> void
+                | () -> Enumerator[untyped, void]
+    end
+
+    class StderrSink < Sink
+      def initialize: (?io: untyped io) -> void
+    end
+
+    class FileSink < Sink
+      def initialize: (String path) -> void
+    end
+  end
+
+  module OpenPGP
+    MESSAGE: String
+
+    def self.armor: (String data, ?String type) -> String
+    def self.dearmor: (String data) -> String
+    def self._native_armor: (String data, String type) -> String
+    def self._native_dearmor: (String data) -> String
+  end
 end
 
 module Confium::Transparency
@@ -17,26 +166,64 @@ module Confium::Transparency
     def size: () -> Integer
     def empty?: () -> bool
     def root: () -> String
+    def entries: () -> Array[untyped]
+    def to_a: () -> Array[untyped]
     def inclusion_proof: (Integer sequence) -> InclusionProof
+    def consistency_proof: (Integer sequence) -> Array[untyped]
+    def verify_consistency: (String old_root, String new_root, Integer old_size, Integer new_size, Array[untyped] proof) -> bool
   end
 
   class InclusionProof
     def sequence: () -> Integer
     def steps: () -> Hash[Integer, { sibling: String, side: String }]
     def verify: (String root_bytes) -> bool
+    def verify_with_leaf: (String leaf_hash, String root_bytes) -> bool
+  end
+
+  module OTS
+    DEFAULT_CALENDARS: Array[String]
+
+    class Receipt
+      def initialize: (bytes: String, ?block_height: Integer?) -> void
+      def to_bytes: () -> String
+    end
+
+    # Stub — calendar-server stamping is wired through the Rust
+    # extension in a future release.
+    def self.stamp: (String hash) -> untyped
+    def self.verify: (untyped receipt, String hash) -> untyped
+  end
+
+  module ERS
+    class EvidenceRecord
+      def self.build_initial: (String data_hash, String tsa_label, String token_bytes) -> EvidenceRecord
+      def renewal_count: () -> Integer
+      def renew: (String data_hash, String tsa_label, String token_bytes) -> EvidenceRecord
+    end
   end
 end
 
 module Confium::Composite
-  def self.generate_ed25519_keypair: () -> { private_key: String, public_key: String }
-  def self.sign_ed25519: (String private_key_bytes, String message_bytes) -> { algorithm: String, public_key: String, signature: String }
-  def self.sign_p256: (String private_key_bytes, String message_bytes) -> { algorithm: String, public_key: String, signature: String }
+  def self.generate_ed25519_keypair: () -> Hash[String, String]
+  def self.sign_ed25519: (String private_key_bytes, String message_bytes) -> Hash[String, String]
+  def self.sign_p256: (String private_key_bytes, String message_bytes) -> Hash[String, String]
 
   class Signature
-    def self.new: (Array[{ algorithm: String, public_key: String, signature: String }] components) -> untyped
+    BINARY_FIELDS: Array[String]
+
+    def self.new: (Array[Hash[String, String]] components) -> untyped
+    def self.components_to_json: (Array[Hash[String, String]] components) -> String
+    def self.from_json: (String | Array[untyped] | Hash[String, untyped] json) -> Signature
+
+    private
+
+    def self.decode_binary_fields: (Hash[String, untyped] component) -> Hash[String, untyped]
+
+    public
+
     def component_count: () -> Integer
     def algorithms: () -> Array[String]
-    def verify: (String message_bytes) -> VerificationResult
+    def verify: (String message_bytes, ?Hash[String, untyped] verifiers) -> VerificationResult
   end
 
   class VerificationResult
@@ -81,9 +268,36 @@ module Confium::PKI
     def to_pem: () -> String
   end
 
+  class CertificateBuilder
+    def subject: () -> String?
+    def subject=: (String value) -> String
+    def issuer: () -> String?
+    def issuer=: (String value) -> String
+    def serial: () -> Integer?
+    def serial=: (Integer value) -> Integer
+    def not_before: () -> untyped
+    def not_before=: (untyped value) -> untyped
+    def not_after: () -> untyped
+    def not_after=: (untyped value) -> untyped
+    # Returns cert metadata; full DER construction needs x509 builder
+    # support in the Rust extension.
+    def build_self_signed: (algorithm: Symbol, private_key: String) -> Hash[Symbol, untyped]
+  end
+
+  class PathValidator
+    def self.validate: (Certificate leaf, Array[Certificate]? intermediates, Certificate root, ?String time_iso8601) -> PathValidationResult
+  end
+
+  class PathValidationResult
+    def valid?: () -> bool
+    def check_count: () -> Integer
+    def checks_json: () -> String
+  end
+
   module CMS
     class SignedData
       def self.from_json: (String json) -> SignedData
+      def self.build_detached: (String signature, String algorithm_oid, Array[String] cert_ders) -> SignedData
       def to_json: () -> String
       def signer_count: () -> Integer
       def signing_time: () -> String?
@@ -98,6 +312,31 @@ module Confium::PKI
       def length: () -> Integer
       def size: () -> Integer
     end
+
+    class SignedDataBuilder
+      SIGNATURE_ALGORITHM_OID: Hash[Symbol, String]
+
+      def initialize: () -> void
+      def content: () -> String?
+      def content=: (String value) -> String
+      def add_signer: (cert_der: String, private_key: String, algorithm: Symbol | String) -> void
+      def build: () -> SignedData
+
+      private
+
+      def sign_payload: (Symbol algorithm, String private_key, String payload) -> String
+    end
+  end
+
+  module CNML
+    REQUIRED_EXTENSIONS: Hash[String, untyped]
+    OPTIONAL_EXTENSIONS: Hash[String, untyped]
+    CERT_ROLES: Array[Symbol]
+
+    def self.missing_extensions: (Certificate cert) -> Array[String]
+    def self.required_extension_oids: () -> Array[String]
+    def self.optional_extension_oids: () -> Array[String]
+    def self.cert_roles: () -> Array[Symbol]
   end
 
   module XMLDSig
@@ -139,10 +378,10 @@ end
 
 module Confium::TC
   module FrostP256
-    def self.generate_keypair: () -> { private_key: String, public_key: String }
+    def self.generate_keypair: () -> Hash[String, String]
     def self.split_secret: (String secret_bytes, Integer threshold, Integer party_count) -> Array[Share]
     def self.recover_secret: (Array[{ x: Integer, y: String }] shares) -> String
-    def self.sign: (String private_key_bytes, String message_bytes) -> { der: String, fixed: String }
+    def self.sign: (String private_key_bytes, String message_bytes) -> Hash[String, String]
 
     class Share
       def x: () -> Integer
@@ -151,8 +390,33 @@ module Confium::TC
   end
 
   module ElGamalP256
-    def self.encapsulate: (String public_key_bytes) -> { ciphertext: { c1: String, c2: String }, shared_secret: String }
-    def self.partial_decrypt: (Integer party_index, String share_bytes, { c1: String, c2: String } ciphertext) -> { party_index: Integer, bytes: String }
-    def self.aggregate_partials: (Array[{ party_index: Integer, bytes: String }] partials, Integer threshold, { c1: String, c2: String } ciphertext) -> String
+    def self.encapsulate: (String public_key_bytes) -> Hash[String, untyped]
+    def self.partial_decrypt: (Integer party_index, String share_bytes, Hash[String, String] ciphertext) -> Hash[String, untyped]
+    def self.aggregate_partials: (Array[Hash[String, untyped]] partials, Integer threshold, Hash[String, String] ciphertext) -> String
+  end
+
+  module Cmp20
+    def self.keygen: (Integer threshold, Integer party_count) -> Hash[String, untyped]
+    def self.sign: (Array[String] shares, Integer threshold, String message_bytes) -> String
+  end
+
+  module Gg18
+    def self.keygen: (Integer threshold, Integer party_count) -> Hash[String, untyped]
+    def self.sign: (Array[String] shares, Integer threshold, String message_bytes) -> String
+  end
+
+  class ShareFile
+    attr_reader scheme: String
+    attr_reader threshold: Integer?
+    attr_reader party_count: Integer
+    attr_reader public_key: String
+    attr_reader shares: Array[String]
+
+    def initialize: (scheme: String, threshold: Integer?, party_count: Integer, public_key: String, shares: Array[String]) -> void
+    def self.load: (String path) -> ShareFile
+    def self.from_json: (String json) -> ShareFile
+    def self.from_keygen: (String scheme_name, Hash[String, untyped] keygen_result) -> ShareFile
+    def save: (String path) -> ShareFile
+    def to_json: (*untyped args) -> String
   end
 end

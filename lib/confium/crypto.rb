@@ -21,6 +21,7 @@
 #   Confium::Crypto.lookup(:hash)  # => Confium::Digest
 module Confium
   module Crypto
+    # @type ivar @interfaces: Hash[Symbol, untyped]
     @interfaces = {}
 
     class << self

@@ -85,7 +85,7 @@ jobs:
         run: bash scripts/sinatra_integration_test.sh
 
   lint:
-    name: RuboCop
+    name: RuboCop + Steep
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -94,6 +94,7 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
       - run: bundle exec rubocop
+      - run: bundle exec steep check
 
   release:
     name: Release gem
