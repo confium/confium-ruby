@@ -10,12 +10,15 @@ name: release-native-gems
 # dock images are Ubuntu 20.04 (gcc 9.4) and the vendored RNP stack
 # needs Botan 3.12, which requires gcc 11+.
 #
+# One extension cannot span all supported Rubies (rb-sys references
+# ruby_current_vm_ptr on Ruby <= 3.2, which libruby stopped exporting
+# in 3.3), so each platform gem carries one .so per C-ABI window:
+# 3.1 (loads on 3.1/3.2) and 3.3 (loads on 3.3+). lib/confium.rb
+# picks the directory for the running Ruby.
+#
 # The source gem is owned by test-and-release.yml; this workflow must
 # never push a ruby-platform gem — a source gem pushed here would burn
 # the version slot (RubyGems blocks re-pushing any version).
-#
-# Local dry-run (build + package only, never publishes):
-#   bundle exec rake compile && bundle exec rake native_gem:package[arm64-darwin]
 
 on:
   push:
@@ -28,23 +31,24 @@ concurrency:
 
 jobs:
   build:
-    name: native gem — ${{ matrix.platform }}
+    name: extension — ${{ matrix.platform }} / Ruby ${{ matrix.abi }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin ]
+        abi: [ '3.1', '3.3' ]
         include:
           - platform: x86_64-linux
             runner: ubuntu-latest
           - platform: aarch64-linux
             runner: ubuntu-24.04-arm
+          # macos-13 (Intel) is retired; macos-15-intel is the x86_64
+          # macOS runner. Windows is absent: the vendored RNP build
+          # (rnp-src → json-c, botan) has no MSVC/mingw story (see
+          # rakelib/native_gem.rake).
           - platform: x86_64-darwin
-            # macos-13 (Intel) is retired; macos-15-intel is the
-            # x86_64 macOS runner.
             runner: macos-15-intel
-          # Windows is absent deliberately: the vendored RNP build
-          # (rnp-src → json-c, botan) has no MSVC/mingw story, so the
-          # gem ships no Windows natives (see rakelib/native_gem.rake).
           - platform: arm64-darwin
             runner: macos-15
     steps:
@@ -54,16 +58,49 @@ jobs:
         with:
           profile: minimal
 
-      # Oldest supported Ruby: the extension loads on newer Rubies
-      # via the stable C extension ABI (guarded by install-check).
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.1'
+          ruby-version: ${{ matrix.abi }}
           bundler-cache: true
 
-      - name: Compile extension and package gem
+      - name: Compile extension into its ABI window
         run: |
           bundle exec rake compile
+          mkdir -p "lib/confium_native/${{ matrix.abi }}"
+          cp lib/confium_native/confium_native.* "lib/confium_native/${{ matrix.abi }}/"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-so-${{ matrix.platform }}-${{ matrix.abi }}
+          path: lib/confium_native/${{ matrix.abi }}/confium_native.*
+
+  package:
+    name: package — ${{ matrix.platform }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin ]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: so/
+          pattern: native-so-${{ matrix.platform }}-*
+          merge-multiple: true
+
+      - name: Stage ABI windows and package
+        run: |
+          ls -laR so/
+          mkdir -p lib/confium_native
+          cp -R so/3.1 so/3.3 lib/confium_native/
           bundle exec rake native_gem:package[${{ matrix.platform }}]
 
       - uses: actions/upload-artifact@v7
@@ -72,10 +109,10 @@ jobs:
           path: pkg/*-${{ matrix.platform }}.gem
 
   install-check:
-    # The platform gems are compiled against Ruby 3.1; prove they
-    # install and load on the oldest AND newest supported Rubies.
+    # Prove each platform gem installs and loads on every supported
+    # Ruby before anything can publish.
     name: install check — ${{ matrix.platform }} / Ruby ${{ matrix.ruby }}
-    needs: build
+    needs: package
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -86,10 +123,22 @@ jobs:
             ruby: '3.1'
           - platform: x86_64-linux
             runner: ubuntu-latest
+            ruby: '3.2'
+          - platform: x86_64-linux
+            runner: ubuntu-latest
+            ruby: '3.3'
+          - platform: x86_64-linux
+            runner: ubuntu-latest
             ruby: '3.4'
           - platform: arm64-darwin
             runner: macos-latest
             ruby: '3.1'
+          - platform: arm64-darwin
+            runner: macos-latest
+            ruby: '3.2'
+          - platform: arm64-darwin
+            runner: macos-latest
+            ruby: '3.3'
           - platform: arm64-darwin
             runner: macos-latest
             ruby: '3.4'
@@ -117,7 +166,7 @@ jobs:
 
   publish:
     name: Publish to RubyGems
-    needs: [ build, install-check ]
+    needs: [ package, install-check ]
     # Tags only — a manual workflow_dispatch must never push (a failed
     # push still burns the version slot for the platform).
     if: contains(github.ref, 'refs/tags/v')
