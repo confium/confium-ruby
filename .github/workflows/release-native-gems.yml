@@ -65,14 +65,19 @@ jobs:
 
       - name: Compile extension into its ABI window
         run: |
-          bundle exec rake compile
-          mkdir -p "lib/confium_native/${{ matrix.abi }}"
-          cp lib/confium_native/confium_native.* "lib/confium_native/${{ matrix.abi }}/"
+          bundle exec rake compile:release
+          ext="$(find lib/confium_native -maxdepth 1 -name 'confium_native.*' -type f)"
+          # Strip local/debug symbols; the prebuilt gem has shipped
+          # multi-MB to 73 MB binaries without this.
+          if [ "$(uname -s)" = Darwin ]; then strip -x "$ext"; else strip "$ext"; fi
+          mkdir -p "stage/${{ matrix.abi }}"
+          cp "$ext" "stage/${{ matrix.abi }}/"
+          ls -la "stage/${{ matrix.abi }}"
 
       - uses: actions/upload-artifact@v7
         with:
           name: native-so-${{ matrix.platform }}-${{ matrix.abi }}
-          path: lib/confium_native/${{ matrix.abi }}/confium_native.*
+          path: stage
 
   package:
     name: package — ${{ matrix.platform }}
