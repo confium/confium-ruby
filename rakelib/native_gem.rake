@@ -47,10 +47,14 @@ namespace :native_gem do
     spec = Gem::Specification.load('confium.gemspec')
     spec.platform = expected
     # Pre-built gem: ship the compiled extension instead of the Rust
-    # sources (the vendored RNP tree would bloat every platform gem)
-    # and run no extconf at install time.
+    # sources (the vendored RNP tree would bloat every platform
+    # gem) and run no extconf at install time. rb_sys exists for
+    # extconf-based source builds only, so it is not a dependency
+    # here — without this, installing the platform gem offline or
+    # with --local fails to resolve it.
     spec.files = spec.files.grep_v(%r{\Aext/}) + [binary]
     spec.extensions = []
+    spec.dependencies.reject! { |d| d.name == 'rb_sys' }
 
     require 'rubygems/package'
     FileUtils.mkdir_p('pkg')
