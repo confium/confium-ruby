@@ -6,9 +6,11 @@
 # Run with: ruby examples/hello_composite.rb
 #
 # Demonstrates:
-#   - Confium::Composite::Signature
-#   - Built-in Ed25519 and ECDSA-P256 verifiers
-#   - Per-component result inspection
+#   - Confium::Composite Ed25519 component signing
+#   - Confium::Composite::Signature verification with per-component
+#     result inspection
+#   - Confium::Attributes predicate DSL
+#
 
 require 'confium'
 
@@ -20,33 +22,31 @@ sig = Confium::Composite.sign_ed25519(kp['private_key'], message)
 puts "Message: #{message}"
 puts "Signature (Ed25519): #{sig['signature'].unpack1('H*')[0, 32]}..."
 
-# Verify using the built-in verifier.
-result = Confium::Composite.verify_ed25519(kp['public_key'], message, sig['signature'])
-puts "Verification: #{result ? 'VALID' : 'INVALID'}"
+# Verify through the composite Signature object.
+result = Confium::Composite::Signature.new([sig]).verify(message)
+puts "Verification: #{result.all_verified? ? 'VALID' : 'INVALID'}"
+result.per_component.each_value do |component|
+  status = component['verified'] ? 'verified' : component['error']
+  puts "  #{component['algorithm']}: #{status}"
+end
+
+# The wrong message fails verification (reported, not raised).
+wrong = Confium::Composite::Signature.new([sig]).verify('tampered')
+puts "Wrong message: #{wrong.all_verified? ? 'VALID' : 'INVALID'}"
 
 # Demonstrate attribute predicates.
-predicate = Confium::Attributes::Predicate.parse(<<~DSL)
-  2-of-3 directors
-  from 2 distinct regions
-DSL
-puts "Predicate parsed: #{predicate}"
-
-# Build a simple signer set.
-signer = Struct.new(:id, :region, keyword_init: true)
-signers = [
-  signer.new(id: 'd1', region: 'na'),
-  signer.new(id: 'd2', region: 'eu'),
-  signer.new(id: 'd3', region: 'apac')
-]
-
-satisfied = predicate.satisfied?(
-  actors: signers.first(2),
-  attributes: { region: signers.first(2).map(&:region) }
+predicate = Confium::Attributes.parse(
+  'and(min_count("role:director", 2), min_distinct("region", 2))'
 )
-puts "2-of-3 from 2 regions: #{satisfied ? 'satisfied' : 'not satisfied'}"
+puts "\nPredicate: 2-of-N directors from 2 distinct regions"
 
-satisfied2 = predicate.satisfied?(
-  actors: signers,
-  attributes: { region: signers.map(&:region) }
-)
-puts "3 signers from 3 regions: #{satisfied2 ? 'satisfied' : 'not satisfied'}"
+signer = lambda do |region|
+  s = Confium::Attributes::Signer.new
+  s.add('role:director', 'yes')
+  s.add('region', region)
+  s
+end
+directors = %w[na eu apac].map(&signer)
+
+puts "2 signers, 2 regions: #{predicate.satisfied_by?(directors.first(2)) ? 'satisfied' : 'not satisfied'}"
+puts "1 signer:            #{predicate.satisfied_by?(directors.first(1)) ? 'satisfied' : 'not satisfied'}"

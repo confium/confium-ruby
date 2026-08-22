@@ -6,45 +6,47 @@
 # Run with: ruby examples/hello_errors.rb
 #
 # Demonstrates:
-#   - The typed Confium::Error hierarchy
-#   - Per-error-class rescue patterns
-#   - Structured .details accessor
+#   - The typed Confium::Error hierarchy raised from the native
+#     extension (Confium::ThresholdError with structured details)
+#   - The .details accessor on typed errors
+#   - RuntimeError from native validation paths
+#
 
 require 'confium'
 
-# Trigger a ParseError with bad input.
+# A threshold operation below its threshold raises a typed error with
+# structured context carried across the FFI boundary.
+kg = Confium::TC::Cmp20.keygen(3, 5)
 begin
-  Confium::Transparency::MerkleTree.verify_inclusion(
-    entry: 'not-bytes',
-    proof: nil,
-    root: "\x00" * 32
-  )
-rescue Confium::Error => e
-  puts "Caught Confium::Error (#{e.class})"
-  puts "  Message: #{e.message}"
+  Confium::TC::Cmp20.sign(kg['shares'].first(2), 3, 'msg')
+rescue Confium::ThresholdError => e
+  puts "Caught #{e.class}: #{e.message}"
+  puts "  have_count: #{e.have_count}, need_count: #{e.need_count}"
   puts "  Details: #{e.details.inspect}"
 end
 
-# Demonstrate the full error hierarchy.
-puts "\nError hierarchy:"
-puts '  Confium::Error'
-Confium::Error.descendants.sort_by(&:name).each do |klass|
-  puts "  #{'  ' * (klass.ancestors.count - 1)}#{klass}"
+# Demonstrate the full error hierarchy. Eager-load the subclasses so
+# Class#subclasses can see them (they are otherwise autoloaded on
+# first reference).
+%w[parse_error validation_error verification_error threshold_error crypto_error
+   not_found_error index_error unresolved_signer_error policy_violation_error].each do |f|
+  require "confium/errors/#{f}"
 end
+def print_hierarchy(klass, indent = 0)
+  puts "#{'  ' * indent}#{klass}"
+  klass.subclasses.sort_by(&:name).each { |c| print_hierarchy(c, indent + 1) }
+end
+puts "\nError hierarchy:"
+print_hierarchy(Confium::Error)
 
-# Demonstrate typed rescue for different error types.
+# Native validation failures surface as RuntimeError with a
+# descriptive message.
 [
-  -> { Confium::Composite.verify_ed25519('bad', 'msg', 'bad') },
-  -> { Confium::Transparency::MerkleTree.new.inclusion_proof(999) },
-  -> { Confium::Attributes::Predicate.parse('invalid dsl !!!') }
+  -> { Confium::Attributes.parse('not_a_function(') },
+  -> { Confium::Config::Manifest.from_toml('not = = toml') },
+  -> { Confium::Composite.sign_ed25519('x' * 16, 'msg') }
 ].each_with_index do |op, i|
   op.call
-rescue Confium::VerificationError => e
-  puts "\n[#{i + 1}] VerificationError: #{e.message[0, 60]}"
-rescue Confium::IndexError => e
-  puts "\n[#{i + 1}] IndexError: #{e.message[0, 60]}"
-rescue Confium::ParseError => e
-  puts "\n[#{i + 1}] ParseError: #{e.message[0, 60]}"
-rescue Confium::Error => e
+rescue StandardError => e
   puts "\n[#{i + 1}] #{e.class}: #{e.message[0, 60]}"
 end
