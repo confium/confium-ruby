@@ -43,13 +43,19 @@ jobs:
         run: bundle install
 
       - name: Point bindgen at MSYS2 headers
-        # RubyInstaller's rbconfig records HAVE_STRINGS_H; rb-sys's
-        # bindgen then needs MSYS2's POSIX headers on its include path.
+        # RubyInstaller rbconfig records HAVE_STRINGS_H; rb-sys bindgen
+        # then needs the MSYS2 POSIX headers on its include path. The
+        # windows runners ship MSYS2 at C:\msys64.
         if: runner.os == 'Windows'
         run: |
-          msys_inc="$(ridk exec sh -c 'cygpath -m /ucrt64/include' | tr -d '\r')"
-          echo "MSYS include dir: $msys_inc"
-          echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $msys_inc" >> "$GITHUB_ENV"
+          for d in "C:/msys64/ucrt64/include" "D:/msys64/ucrt64/include"; do
+            if [ -d "$d" ]; then
+              echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $d" >> "$GITHUB_ENV"
+              echo "MSYS include dir: $d"
+              exit 0
+            fi
+          done
+          echo "MSYS2 not found; bindgen may fail" >&2
 
       - name: Build native extension
         run: bundle exec rake compile

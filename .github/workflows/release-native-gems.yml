@@ -71,13 +71,19 @@ jobs:
           bundler-cache: true
 
       - name: Point bindgen at MSYS2 headers
-        # RubyInstaller's rbconfig records HAVE_STRINGS_H; rb-sys's
-        # bindgen then needs MSYS2's POSIX headers on its include path.
+        # RubyInstaller rbconfig records HAVE_STRINGS_H; rb-sys bindgen
+        # then needs the MSYS2 POSIX headers on its include path. The
+        # windows runners ship MSYS2 at C:\msys64.
         if: runner.os == 'Windows'
         run: |
-          msys_inc="$(ridk exec sh -c 'cygpath -m /ucrt64/include' | tr -d '\r')"
-          echo "MSYS include dir: $msys_inc"
-          echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $msys_inc" >> "$GITHUB_ENV"
+          for d in "C:/msys64/ucrt64/include" "D:/msys64/ucrt64/include"; do
+            if [ -d "$d" ]; then
+              echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $d" >> "$GITHUB_ENV"
+              echo "MSYS include dir: $d"
+              exit 0
+            fi
+          done
+          echo "MSYS2 not found; bindgen may fail" >&2
 
       - name: Compile extension into its ABI window
         run: |
@@ -148,7 +154,7 @@ jobs:
       - name: Build the extension in Alpine
         run: |
           docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
-            # Alpine's packaged Rust is too old for edition 2024; use rustup.
+            # Alpine packaged Rust is too old for edition 2024; install rustup.
             apk add --no-cache curl gcc g++ make binutils musl-dev
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             . "$HOME/.cargo/env"
