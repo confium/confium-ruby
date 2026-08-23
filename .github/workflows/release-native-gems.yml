@@ -75,7 +75,7 @@ jobs:
         # bindgen then needs MSYS2's POSIX headers on its include path.
         if: runner.os == 'Windows'
         run: |
-          msys_inc="$(ridk exec sh -c 'cygpath -m /ucrt64/include' | tr -d '')"
+          msys_inc="$(ridk exec sh -c 'cygpath -m /ucrt64/include' | tr -d '\r')"
           echo "MSYS include dir: $msys_inc"
           echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $msys_inc" >> "$GITHUB_ENV"
 
