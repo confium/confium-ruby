@@ -70,6 +70,15 @@ jobs:
           ruby-version: ${{ matrix.abi }}
           bundler-cache: true
 
+      - name: Point bindgen at MSYS2 headers
+        # RubyInstaller's rbconfig records HAVE_STRINGS_H; rb-sys's
+        # bindgen then needs MSYS2's POSIX headers on its include path.
+        if: runner.os == 'Windows'
+        run: |
+          msys_inc="$(ridk exec sh -c 'cygpath -m /ucrt64/include' | tr -d '')"
+          echo "MSYS include dir: $msys_inc"
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $msys_inc" >> "$GITHUB_ENV"
+
       - name: Compile extension into its ABI window
         run: |
           bundle exec rake compile:release
@@ -139,7 +148,11 @@ jobs:
       - name: Build the extension in Alpine
         run: |
           docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
-            apk add --no-cache rust cargo make binutils
+            # Alpine's packaged Rust is too old for edition 2024; use rustup.
+            apk add --no-cache curl gcc g++ make binutils musl-dev
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            . "$HOME/.cargo/env"
+            rustc --version
             gem install rake rake-compiler rb_sys --no-document
             rake compile:release
             strip lib/confium_native/confium_native.so
