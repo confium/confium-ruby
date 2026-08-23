@@ -65,6 +65,12 @@ jobs:
         with:
           profile: minimal
 
+      - name: Add the GNU Rust target
+        # rb-sys selects RubyInstaller's mingw gcc as the linker; the
+        # msvc target would drive it with MSVC-style flags and break.
+        if: runner.os == 'Windows'
+        run: rustup target add x86_64-pc-windows-gnu
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.abi }}
@@ -100,6 +106,7 @@ jobs:
 
           stub_path="$(cygpath -m "$stubs")"
           echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $stub_path" >> "$GITHUB_ENV"
+          echo "CARGO_BUILD_TARGET=x86_64-pc-windows-gnu" >> "$GITHUB_ENV"
           echo "stub include dir: $stub_path"
 
       - name: Compile extension into its ABI window
