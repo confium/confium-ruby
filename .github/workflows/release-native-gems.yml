@@ -155,20 +155,26 @@ jobs:
   musl:
     # Alpine/musl builds happen in a container — no musl runner exists.
     # The extension is pure Rust, so ruby:3.x-alpine + a Rust toolchain
-    # is all it takes. Builds, packages, and install-checks all three
-    # ABI windows in the one container.
-    name: native gem — x86_64-linux-musl
+    # is all it takes. aarch64 runs the same container under QEMU
+    # (--platform linux/arm64), which the runners emulate transparently.
+    name: native gem — ${{ matrix.platform }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         abi: [ '3.1', '3.2', '3.3' ]
+        platform: [ x86_64-linux-musl, aarch64-linux-musl ]
+        include:
+          - platform: x86_64-linux-musl
+            docker_arch: amd64
+          - platform: aarch64-linux-musl
+            docker_arch: arm64
     steps:
       - uses: actions/checkout@v7
 
       - name: Build the extension in Alpine
         run: |
-          docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
+          docker run --platform "linux/${{ matrix.docker_arch }}" --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
             # Alpine packaged Rust is too old for edition 2024; install rustup.
             apk add --no-cache curl gcc g++ make binutils musl-dev clang-dev
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
@@ -187,13 +193,17 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: native-so-x86_64-linux-musl-${{ matrix.abi }}
+          name: native-so-${{ matrix.platform }}-${{ matrix.abi }}
           path: stage
 
   musl-package:
-    name: package — x86_64-linux-musl
+    name: package — ${{ matrix.platform }}
     needs: musl
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ x86_64-linux-musl, aarch64-linux-musl ]
     steps:
       - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
@@ -203,37 +213,43 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: so/
-          pattern: native-so-x86_64-linux-musl-*
+          pattern: native-so-${{ matrix.platform }}-*
           merge-multiple: true
       - name: Stage ABI windows and package
         run: |
           mkdir -p lib/confium_native
           cp -R so/3.1 so/3.2 so/3.3 lib/confium_native/
-          bundle exec rake native_gem:package[x86_64-linux-musl]
+          bundle exec rake native_gem:package[${{ matrix.platform }}]
       - uses: actions/upload-artifact@v7
         with:
-          name: native-gem-x86_64-linux-musl
-          path: pkg/*-x86_64-linux-musl.gem
+          name: native-gem-${{ matrix.platform }}
+          path: pkg/*-${{ matrix.platform }}.gem
 
   musl-install-check:
-    name: install check — x86_64-linux-musl / Ruby ${{ matrix.abi }}
+    name: install check — ${{ matrix.platform }} / Ruby ${{ matrix.abi }}
     needs: musl-package
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         abi: [ '3.1', '3.2', '3.3' ]
+        platform: [ x86_64-linux-musl, aarch64-linux-musl ]
+        include:
+          - platform: x86_64-linux-musl
+            docker_arch: amd64
+          - platform: aarch64-linux-musl
+            docker_arch: arm64
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: native-gem-x86_64-linux-musl
+          name: native-gem-${{ matrix.platform }}
           path: gems/
 
       - name: Install and exercise the pre-built gem in Alpine
         run: |
-          docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
+          docker run --platform "linux/${{ matrix.docker_arch }}" --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
             apk add --no-cache libgcc
-            gem install --local /work/gems/confium-*-x86_64-linux-musl.gem --no-document
+            gem install --local /work/gems/confium-*-${{ matrix.platform }}.gem --no-document
             ruby -r confium -e "
               kp = Confium::Composite.generate_ed25519_keypair
               component = Confium::Composite.sign_ed25519(kp[\"private_key\"], \"smoke\")

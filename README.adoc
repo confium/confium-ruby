@@ -32,9 +32,9 @@ $ gem install confium
 
 * Ruby ≥ 3.1
 * Nothing else on the pre-compiled platforms: `x86_64-linux`,
-  `aarch64-linux`, `x86_64-linux-musl`, `x86_64-darwin`,
-  `arm64-darwin`, `x64-mingw-ucrt` (each gem carries one extension
-  per Ruby C-ABI window)
+  `aarch64-linux`, `x86_64-linux-musl`, `aarch64-linux-musl`,
+  `x86_64-darwin`, `arm64-darwin`, `x64-mingw-ucrt` (each gem
+  carries one extension per Ruby C-ABI window)
 
 Source builds (other platforms, or installing from the repo) also
 need the Rust stable toolchain (`rustup default stable`) — and
