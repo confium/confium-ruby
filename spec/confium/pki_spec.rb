@@ -3,25 +3,17 @@
 require 'confium'
 require 'fileutils'
 require 'time'
+require_relative '../cert_fixture'
 
 RSpec.describe Confium::PKI::Certificate do
   let(:pem) { File.read(File.expand_path('support/test.pem', __dir__)) }
   let(:cert) { described_class.from_pem(pem) }
 
   before(:all) do
-    # Generate a test cert once for the whole spec run.
     support_dir = File.expand_path('support', __dir__)
     FileUtils.mkdir_p(support_dir)
     pem_path = File.join(support_dir, 'test.pem')
-    key_path = File.join(support_dir, 'test.key')
-    unless File.exist?(pem_path)
-      system(
-        'openssl req -x509 -newkey rsa:2048 -nodes ' \
-        "-keyout #{key_path} -out #{pem_path} -days 365 " \
-        "-subj '/CN=test.example.com/O=Confium Test'",
-        out: '/dev/null', err: '/dev/null'
-      ) or raise 'openssl failed'
-    end
+    CertFixture.write_pem(pem_path) unless File.exist?(pem_path)
   end
 
   describe '.from_pem' do

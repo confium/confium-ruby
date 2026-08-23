@@ -2,20 +2,14 @@
 
 require 'confium'
 require 'fileutils'
+require_relative '../cert_fixture'
 
 RSpec.describe Confium::PKI::PathValidator do
   before(:all) do
     support_dir = File.expand_path('support', __dir__)
     FileUtils.mkdir_p(support_dir)
     @pem_path = File.join(support_dir, 'test.pem')
-    unless File.exist?(@pem_path)
-      system(
-        'openssl req -x509 -newkey rsa:2048 -nodes ' \
-        "-keyout /dev/null -out #{@pem_path} -days 365 " \
-        "-subj '/CN=Test CA'",
-        out: '/dev/null', err: '/dev/null'
-      ) or raise 'openssl failed'
-    end
+    CertFixture.write_pem(@pem_path, cn: 'Test CA') unless File.exist?(@pem_path)
   end
 
   let(:cert) { Confium::PKI::Certificate.from_pem(File.read(@pem_path)) }
