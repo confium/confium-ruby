@@ -71,22 +71,52 @@ jobs:
           bundler-cache: true
 
       - name: Provide POSIX stubs for bindgen
-        # RubyInstaller rbconfig records HAVE_STRINGS_H, so rb-sys
-        # bindgen reaches for strings.h, which the MSVC-target clang
-        # has no provider for. The declarations only need to parse —
-        # the linked extension never calls them — so a stub header is
-        # sufficient and hermetic.
+        # RubyInstaller rbconfig records HAVE_* for a set of POSIX
+        # headers, so rb-sys bindgen reaches for them, but the
+        # MSVC-target clang has no provider. The declarations only
+        # need to parse — the linked extension never calls them — so
+        # stub headers are sufficient and hermetic.
         if: runner.os == 'Windows'
         run: |
           stubs="$RUNNER_TEMP/posix-stubs"
-          mkdir -p "$stubs"
-          {
-            echo '/* POSIX decls for bindgen parsing only. */'
-            echo '#include <string.h>'
-            echo 'int ffs(int);'
-            echo 'int strcasecmp(const char *, const char *);'
-            echo 'int strncasecmp(const char *, const char *, size_t);'
-          } > "$stubs/strings.h"
+          mkdir -p "$stubs/sys"
+          printf '%s\n' '#pragma once' '#include <string.h>' \
+            'int ffs(int);' \
+            'int strcasecmp(const char *, const char *);' \
+            'int strncasecmp(const char *, const char *, size_t);' \
+            > "$stubs/strings.h"
+          printf '%s\n' '#pragma once' '#include <io.h>' '#include <process.h>' '#include <direct.h>' \
+            'typedef int pid_t;' 'typedef long ssize_t;' \
+            'int pipe(int *);' 'pid_t fork(void);' 'pid_t getpid(void);' \
+            'int execv(const char *, char *const *);' \
+            'int execvp(const char *, char *const *);' \
+            'int truncate(const char *, long long);' \
+            'int readlink(const char *, char *, size_t);' \
+            'int symlink(const char *, const char *);' \
+            'int link(const char *, const char *);' \
+            'unsigned int alarm(unsigned int);' \
+            > "$stubs/unistd.h"
+          printf '%s\n' '#pragma once' 'typedef struct DIR DIR;' \
+            'struct dirent { char d_name[1]; };' \
+            'DIR *opendir(const char *);' 'struct dirent *readdir(DIR *);' \
+            'int closedir(DIR *);' \
+            > "$stubs/dirent.h"
+          printf '%s\n' '#pragma once' '#define WNOHANG 1' \
+            '#define WIFEXITED(s) (1)' '#define WEXITSTATUS(s) (0)' \
+            'int wait(int *);' 'int waitpid(int, int *, int);' \
+            > "$stubs/sys/wait.h"
+          printf '%s\n' '#pragma once' '#include <time.h>' \
+            'struct timeval { long tv_sec; long tv_usec; };' \
+            'struct timezone { int dummy; };' \
+            'int gettimeofday(struct timeval *, struct timezone *);' \
+            > "$stubs/sys/time.h"
+          printf '%s\n' '#pragma once' '#include <sys/types.h>' \
+            > "$stubs/sys/select.h"
+          printf '%s\n' '#pragma once' '#define FNM_NOFLAGS 0' '#define FNM_PATHNAME 1' \
+            'int fnmatch(const char *, const char *, int);' \
+            > "$stubs/fnmatch.h"
+          printf '%s\n' '#pragma once' 'char *basename(char *);' 'char *dirname(char *);' \
+            > "$stubs/libgen.h"
           stub_path="$(cygpath -m "$stubs")"
           echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $stub_path" >> "$GITHUB_ENV"
           echo "stub include dir: $stub_path"
@@ -161,7 +191,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
             # Alpine packaged Rust is too old for edition 2024; install rustup.
-            apk add --no-cache curl gcc g++ make binutils musl-dev
+            apk add --no-cache curl gcc g++ make binutils musl-dev clang-dev
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             . "$HOME/.cargo/env"
             rustc --version
