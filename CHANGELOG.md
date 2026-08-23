@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.4] — 2026-08-23
+
+### Fixed
+
+- **Typed-error sweep completed.** Crypto operation failures
+  (FrostP256 sign, ElGamal encapsulate/decrypt/aggregate, composite
+  sign) raise `Confium::CryptoError` with the primitive in `details`;
+  `PathValidator` DER extraction failures raise `Confium::ParseError`;
+  `Manifest#tier_name_at` and `SignedData#certificate_at` out-of-range
+  raise the typed `Confium::IndexError` (unifying with the
+  transparency proofs — they previously raised Ruby's core
+  `IndexError`).
+- **Zero compiler warnings.** All 80 direct
+  `magnus::exception::*` constructor sites are centralized into
+  `util::runtime`/`util::arg_error` (the deprecated API survives in
+  exactly one module whose job is wrapping it); the remaining magnus
+  deprecations (`RString::buf_new`, `RArray::each`) and dead imports
+  are fixed.
+- **DoS guard now covers every byte input**: the duplicate local
+  `bytes_from_value` copies in tc/transparency — one of which
+  skipped the 1 MiB size cap — are consolidated onto the util
+  version that enforces it.
+
 ## [0.3.3] — 2026-08-23
 
 ### Added

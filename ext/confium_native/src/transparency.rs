@@ -9,9 +9,10 @@ use confium_transparency::{
     entry::{ArtifactType, MerkleEntry},
     merkle::{Hash, InclusionProof as RustInclusionProof, MerkleTree as RustMerkleTree, Side},
 };
+use crate::util::{bytes_from_value, bytes_to_rstring};
 use magnus::{
-    exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, IntoValue,
-    Module, Object, RString, Ruby, TryConvert, TypedData, Value,
+    function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, IntoValue,
+    Module, Object, Ruby, TypedData, Value,
 };
 
 #[derive(TypedData, DataTypeFunctions)]
@@ -30,9 +31,7 @@ impl MerkleTree {
     fn append(&self, artifact_hash: Value) -> Result<u64, Error> {
         let bytes = bytes_from_value(artifact_hash)?;
         if bytes.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("artifact_hash must be exactly 32 bytes, got {}", bytes.len()),
+            return Err(crate::util::arg_error(format!("artifact_hash must be exactly 32 bytes, got {}", bytes.len()),
             ));
         }
         let mut artifact_hash = [0u8; 32];
@@ -54,7 +53,7 @@ impl MerkleTree {
     /// to iterate: `tree.to_a.map(&:sequence)` etc.
     fn entries(&self) -> Result<magnus::RArray, Error> {
         let len = self.inner.borrow().len();
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         let arr = ruby.ary_new_capa(len);
         for i in 0..(len as u64) {
             let proof = self.inclusion_proof(i)?;
@@ -74,7 +73,7 @@ impl MerkleTree {
             .consistency_proof(old_size)
             .map_err(|e| crate::util::index_error(e.to_string(), "MerkleTree.consistency_proof", Some(old_size as u64)))?;
         let ruby = Ruby::get()
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::runtime(e.to_string()))?;
         let arr = ruby.ary_new_capa(proof.len());
         for h in &proof {
             arr.push(bytes_to_rstring(&ruby, h))?;
@@ -107,16 +106,12 @@ impl MerkleTree {
     ) -> Result<bool, Error> {
         let old_bytes = bytes_from_value(old_root)?;
         if old_bytes.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("old_root must be 32 bytes, got {}", old_bytes.len()),
+            return Err(crate::util::arg_error(format!("old_root must be 32 bytes, got {}", old_bytes.len()),
             ));
         }
         let new_bytes = bytes_from_value(new_root)?;
         if new_bytes.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("new_root must be 32 bytes, got {}", new_bytes.len()),
+            return Err(crate::util::arg_error(format!("new_root must be 32 bytes, got {}", new_bytes.len()),
             ));
         }
         let mut old_root_hash: Hash = [0u8; 32];
@@ -125,12 +120,10 @@ impl MerkleTree {
         new_root_hash.copy_from_slice(&new_bytes);
 
         let mut proof_hashes: Vec<Hash> = Vec::with_capacity(proof.len());
-        for item in proof.each() {
-            let bytes = bytes_from_value(item?)?;
+        for item in proof.into_iter() {
+            let bytes = bytes_from_value(item)?;
             if bytes.len() != 32 {
-                return Err(Error::new(
-                    exception::arg_error(),
-                    format!("proof entries must be 32 bytes, got {}", bytes.len()),
+                return Err(crate::util::arg_error(format!("proof entries must be 32 bytes, got {}", bytes.len()),
                 ));
             }
             let mut h: Hash = [0u8; 32];
@@ -162,7 +155,7 @@ impl MerkleTree {
         // Re-derive the leaf hash with the same algorithm the tree uses
         // internally (H(0x01 | entry_hash)).
         let leaf_hash = hash_leaf(entry.entry_hash());
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(InclusionProofWrap {
             inner: proof,
             leaf_hash,
@@ -187,7 +180,7 @@ impl InclusionProofWrap {
     }
 
     fn steps(&self) -> Result<Value, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         let result = ruby.hash_new();
         for (i, step) in self.inner.steps.iter().enumerate() {
             let step_hash = ruby.hash_new();
@@ -207,9 +200,7 @@ impl InclusionProofWrap {
     fn verify(&self, root_bytes: Value) -> Result<bool, Error> {
         let bytes = bytes_from_value(root_bytes)?;
         if bytes.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("root must be exactly 32 bytes, got {}", bytes.len()),
+            return Err(crate::util::arg_error(format!("root must be exactly 32 bytes, got {}", bytes.len()),
             ));
         }
         let mut root: Hash = [0u8; 32];
@@ -234,16 +225,12 @@ impl InclusionProofWrap {
     fn verify_with_leaf(&self, leaf_bytes: Value, root_bytes: Value) -> Result<bool, Error> {
         let leaf = bytes_from_value(leaf_bytes)?;
         if leaf.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("leaf_hash must be exactly 32 bytes, got {}", leaf.len()),
+            return Err(crate::util::arg_error(format!("leaf_hash must be exactly 32 bytes, got {}", leaf.len()),
             ));
         }
         let root_raw = bytes_from_value(root_bytes)?;
         if root_raw.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("root must be exactly 32 bytes, got {}", root_raw.len()),
+            return Err(crate::util::arg_error(format!("root must be exactly 32 bytes, got {}", root_raw.len()),
             ));
         }
         let mut current: Hash = [0u8; 32];
@@ -261,35 +248,7 @@ impl InclusionProofWrap {
     }
 }
 
-fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
-    // Accept either a binary String (preferred for byte data) or an Array
-    // of small integers (also commonly used in Ruby crypto code).
-    if let Ok(s) = RString::try_convert(v) {
-        // SAFETY: we treat the string's raw bytes as opaque cryptographic
-        // input — we never interpret them as a UTF-8 string. Encoding is
-        // irrelevant for hash input.
-        return Ok(unsafe { s.as_slice() }.to_vec());
-    }
-    let arr: Vec<i64> = Vec::<i64>::try_convert(v)?;
-    arr.into_iter()
-        .map(|i| {
-            if !(0..=255).contains(&i) {
-                Err(Error::new(
-                    exception::arg_error(),
-                    format!("byte out of range 0..255: {i}"),
-                ))
-            } else {
-                Ok(i as u8)
-            }
-        })
-        .collect()
-}
 
-fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> RString {
-    let s = RString::buf_new(0);
-    s.cat(bytes);
-    s
-}
 
 fn hash_leaf(entry_hash: Hash) -> Hash {
     use sha2::{Digest, Sha256};

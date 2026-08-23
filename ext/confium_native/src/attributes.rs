@@ -12,7 +12,7 @@
 
 use confium_attributes::{evaluate, parse as dsl_parse, Predicate, SignerAttributes};
 use magnus::{
-    exception, function, method, typed_data::Obj, DataTypeFunctions, Error, Module,
+    function, method, typed_data::Obj, DataTypeFunctions, Error, Module,
     Object, Ruby, TryConvert, TypedData, Value,
 };
 
@@ -26,8 +26,8 @@ impl PredicateWrap {
     fn satisfied_by(&self, signers_value: Value) -> Result<bool, Error> {
         let arr = magnus::RArray::try_convert(signers_value)?;
         let mut owned: Vec<SignerAttributes> = Vec::with_capacity(arr.len());
-        for v in arr.each() {
-            let signer_wrap = Obj::<SignerWrap>::try_convert(v?)?;
+        for v in arr.into_iter() {
+            let signer_wrap = Obj::<SignerWrap>::try_convert(v)?;
             owned.push(signer_wrap.inner.borrow().clone());
         }
         let refs: Vec<&SignerAttributes> = owned.iter().collect();
@@ -64,7 +64,7 @@ impl SignerWrap {
 fn parse(expr: String) -> Result<Obj<PredicateWrap>, Error> {
     let predicate = dsl_parse(&expr)
         .map_err(|e| crate::util::parse_error(e.to_string(), "Attributes.parse", Some("dsl"), None))?;
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     Ok(ruby.obj_wrap(PredicateWrap { inner: predicate }))
 }
 

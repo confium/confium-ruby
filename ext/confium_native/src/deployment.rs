@@ -12,7 +12,7 @@ use confium_deployment::{
     validate::validate_manifest,
 };
 use crate::util::{enforce_size, parse_error};
-use magnus::{exception, function, method, typed_data::Obj, DataTypeFunctions, Error, Module, Object, Ruby, TypedData};
+use magnus::{function, method, typed_data::Obj, DataTypeFunctions, Error, Module, Object, Ruby, TypedData};
 
 #[derive(TypedData, DataTypeFunctions)]
 #[magnus(class = "Confium::Identity::Actor", size)]
@@ -25,7 +25,7 @@ impl Actor {
         enforce_size(json.len())?;
         let actor: ActorIdentity = serde_json::from_str(&json)
             .map_err(|e| parse_error(e.to_string(), "Actor.from_json", Some("json"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(actor),
         }))
@@ -33,7 +33,7 @@ impl Actor {
 
     fn to_json(&self) -> Result<String, Error> {
         serde_json::to_string(&*self.inner.borrow())
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+            .map_err(|e| crate::util::runtime(e.to_string()))
     }
 
     fn actor_id(&self) -> String {
@@ -94,7 +94,7 @@ impl Manifest {
         enforce_size(toml_str.len())?;
         let manifest = parse_manifest(&toml_str)
             .map_err(|e| parse_error(e.to_string(), "Manifest.from_toml", Some("toml"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(manifest),
         }))
@@ -123,9 +123,10 @@ impl Manifest {
             .get(index)
             .map(|t| t.name.clone())
             .ok_or_else(|| {
-                Error::new(
-                    exception::index_error(),
+                crate::util::index_error(
                     format!("tier index {index} out of range"),
+                    "Manifest.tier_name_at",
+                    Some(index as u64),
                 )
             })
     }

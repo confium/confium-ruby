@@ -136,7 +136,7 @@ RSpec.describe Confium::Config::Manifest do
 
     it 'raises IndexError for out-of-range tier index' do
       m = described_class.from_toml(manifest_toml)
-      expect { m.tier_name_at(99) }.to raise_error(IndexError, /out of range/)
+      expect { m.tier_name_at(99) }.to raise_error(Confium::IndexError, /out of range/)
     end
   end
 

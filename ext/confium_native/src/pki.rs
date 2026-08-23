@@ -20,7 +20,7 @@ use confium_pki::{
     xmldsig::{canonicalize, canonicalize_exclusive},
 };
 use magnus::{
-    exception, function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, Module,
+    function, method, prelude::*, typed_data::Obj, DataTypeFunctions, Error, Module,
     Object, RHash, RString, Ruby, TryConvert, TypedData, Value,
 };
 
@@ -35,7 +35,7 @@ impl Certificate {
         let der = bytes_from_value(bytes)?;
         let cert = RustCert::from_der(&der)
             .map_err(|e| parse_error(e.to_string(), "Certificate.from_der", Some("der"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: cert }))
     }
 
@@ -43,12 +43,12 @@ impl Certificate {
         enforce_size(pem.len())?;
         let cert = RustCert::from_pem(&pem)
             .map_err(|e| parse_error(e.to_string(), "Certificate.from_pem", Some("pem"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: cert }))
     }
 
     fn to_der(&self) -> Result<RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, &self.inner.to_der()))
     }
 
@@ -81,13 +81,13 @@ impl Certificate {
 
     fn valid_at(&self, iso8601: String) -> Result<bool, Error> {
         let now = DateTime::parse_from_rfc3339(&iso8601)
-            .map_err(|e| Error::new(exception::arg_error(), format!("invalid ISO8601 time: {e}")))?
+            .map_err(|e| crate::util::arg_error(format!("invalid ISO8601 time: {e}")))?
             .with_timezone(&Utc);
         Ok(self.inner.is_within_validity(now))
     }
 
     fn public_key_bytes(&self) -> Result<RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, self.inner.public_key_bytes()))
     }
 }
@@ -103,7 +103,7 @@ impl Csr {
         let der = bytes_from_value(bytes)?;
         let csr = RustCsr::from_der(&der)
             .map_err(|e| parse_error(e.to_string(), "Csr.from_der", Some("der"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: csr }))
     }
 
@@ -111,12 +111,12 @@ impl Csr {
         enforce_size(pem.len())?;
         let csr = RustCsr::from_pem(&pem)
             .map_err(|e| parse_error(e.to_string(), "Csr.from_pem", Some("pem"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: csr }))
     }
 
     fn to_der(&self) -> Result<RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, &self.inner.to_der()))
     }
 
@@ -136,7 +136,7 @@ impl SignedData {
         enforce_size(json.len())?;
         let sd: RustSignedData = serde_json::from_str(&json)
             .map_err(|e| parse_error(e.to_string(), "SignedData.from_json", Some("json"), None))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(sd),
         }))
@@ -162,15 +162,11 @@ impl SignedData {
         certificates: Value,
     ) -> Result<Obj<Self>, Error> {
         if signature.is_nil() {
-            return Err(Error::new(
-                exception::arg_error(),
-                "signature is required",
+            return Err(crate::util::arg_error("signature is required",
             ));
         }
         if certificates.is_nil() {
-            return Err(Error::new(
-                exception::arg_error(),
-                "certificates is required",
+            return Err(crate::util::arg_error("certificates is required",
             ));
         }
 
@@ -179,16 +175,15 @@ impl SignedData {
 
         let certs_array: magnus::RArray = magnus::RArray::try_convert(certificates)?;
         let mut cert_ders = Vec::with_capacity(certs_array.len());
-        for item in certs_array.each() {
-            let v = item?;
+        for v in certs_array.into_iter() {
             let der = bytes_from_value(v)?;
             enforce_size(der.len())?;
             cert_ders.push(der);
         }
 
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         let sd = build_detached_signature(Vec::new(), algorithm, sig_bytes, cert_ders)
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(sd),
         }))
@@ -196,7 +191,7 @@ impl SignedData {
 
     fn to_json(&self) -> Result<String, Error> {
         serde_json::to_string(&*self.inner.borrow())
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))
+            .map_err(|e| crate::util::runtime(e.to_string()))
     }
 
     /// Encode this SignedData as DER bytes (RFC 5652 ContentInfo).
@@ -204,9 +199,9 @@ impl SignedData {
     /// The output is parseable by `openssl cms` / `openssl pkcs7` and
     /// any standards-compliant CMS consumer.
     fn to_der(&self) -> Result<RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         let der = encode_signed_data_der(&self.inner.borrow())
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, &der))
     }
 
@@ -225,7 +220,7 @@ impl SignedData {
     fn content(&self) -> Result<Option<Obj<CertWrapper>>, Error> {
         // Wrap the optional content bytes in a small value object so Ruby
         // can ask `.present?` / `.bytes` without juggling nil-vs-string.
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         match &self.inner.borrow().encap_content_info.content {
             Some(bytes) => {
                 let wrapper = CertWrapper {
@@ -242,16 +237,17 @@ impl SignedData {
     }
 
     fn certificate_at(&self, index: usize) -> Result<RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         self.inner
             .borrow()
             .certificates
             .get(index)
             .map(|c| bytes_to_rstring(&ruby, c))
             .ok_or_else(|| {
-                Error::new(
-                    exception::index_error(),
+                crate::util::index_error(
                     format!("certificate index {index} out of range"),
+                    "SignedData.certificate_at",
+                    Some(index as u64),
                 )
             })
     }
@@ -294,8 +290,8 @@ impl SignedData {
             } else {
                 Err(format!("unsupported signature algorithm OID: {oid}"))
             }
-        }).map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        }).map_err(|e| crate::util::runtime(e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(CmsVerificationResult { inner: result }))
     }
 }
@@ -349,7 +345,7 @@ pub struct CertWrapper {
 
 impl CertWrapper {
     fn bytes(&self) -> Result<RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, &self.bytes))
     }
 

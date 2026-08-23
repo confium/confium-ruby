@@ -5,7 +5,7 @@ use confium_transparency::ers::{
     EvidenceRecord, HashAlgorithm,
 };
 use magnus::{
-    exception, function, method, typed_data::Obj,
+    function, method, typed_data::Obj,
     DataTypeFunctions, Error, Module, Object, Ruby, TryConvert, TypedData, Value,
 };
 
@@ -20,13 +20,11 @@ pub struct ErsRecord {
 impl ErsRecord {
     fn build_initial(args: &[Value]) -> Result<Obj<Self>, Error> {
         let first = args.first().ok_or_else(|| {
-            Error::new(exception::arg_error(), "data_hash required")
+            crate::util::arg_error("data_hash required")
         })?;
         let data_hash = bytes_from_value(*first)?;
         if data_hash.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("data_hash must be 32 bytes, got {}", data_hash.len()),
+            return Err(crate::util::arg_error(format!("data_hash must be 32 bytes, got {}", data_hash.len()),
             ));
         }
         let mut hash = [0u8; 32];
@@ -42,7 +40,7 @@ impl ErsRecord {
         let record =
             build_initial_evidence_record(hash, HashAlgorithm::Sha256, tsa_id, token_bytes);
         let ruby = Ruby::get()
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(record),
         }))
@@ -50,13 +48,11 @@ impl ErsRecord {
 
     fn renew(&self, args: &[Value]) -> Result<Obj<Self>, Error> {
         let first = args.first().ok_or_else(|| {
-            Error::new(exception::arg_error(), "new_hash required")
+            crate::util::arg_error("new_hash required")
         })?;
         let new_hash_bytes = bytes_from_value(*first)?;
         if new_hash_bytes.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("new_hash must be 32 bytes, got {}", new_hash_bytes.len()),
+            return Err(crate::util::arg_error(format!("new_hash must be 32 bytes, got {}", new_hash_bytes.len()),
             ));
         }
         let mut hash = [0u8; 32];
@@ -72,7 +68,7 @@ impl ErsRecord {
         let mut cloned = self.inner.borrow().clone();
         renew_evidence_record(&mut cloned, HashAlgorithm::Sha256, hash, tsa_id, token_bytes);
         let ruby = Ruby::get()
-            .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+            .map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self {
             inner: std::cell::RefCell::new(cloned),
         }))
