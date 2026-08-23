@@ -11,7 +11,7 @@
 //! sink raises, the calling operation still succeeds. Audit
 //! failures must never break a signing ceremony.
 
-use magnus::{exception, function, prelude::*, Error, Module, Ruby, Value};
+use magnus::{function, prelude::*, Error, Module, Ruby, Value};
 use sha2::{Digest, Sha256};
 
 const SINK_IVAR: &str = "@sink";
@@ -94,12 +94,12 @@ fn record(
     algorithm: Option<String>,
     error: Option<String>,
 ) -> Result<(), Error> {
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     let audit_mod: magnus::RModule = ruby
         .class_object()
         .const_get("Confium")
         .and_then(|m: magnus::RModule| m.const_get("Audit"))
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::runtime(e.to_string()))?;
 
     let sink: Value = audit_mod.ivar_get(SINK_IVAR)?;
     if sink.is_nil() {
@@ -123,31 +123,31 @@ fn record(
 
     let _: Value = sink
         .funcall("call", (h,))
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::runtime(e.to_string()))?;
     Ok(())
 }
 
 /// Set the global audit sink. `callback` is a Proc that receives a Hash
 /// or nil to disable auditing.
 fn set_sink(callback: Value) -> Result<(), Error> {
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     let audit_mod: magnus::RModule = ruby
         .class_object()
         .const_get("Confium")
         .and_then(|m: magnus::RModule| m.const_get("Audit"))
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::runtime(e.to_string()))?;
     audit_mod.ivar_set(SINK_IVAR, callback)?;
     Ok(())
 }
 
 /// Get the current audit sink (or nil if not set).
 fn get_sink() -> Result<Value, Error> {
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     let audit_mod: magnus::RModule = ruby
         .class_object()
         .const_get("Confium")
         .and_then(|m: magnus::RModule| m.const_get("Audit"))
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::runtime(e.to_string()))?;
     audit_mod.ivar_get(SINK_IVAR)
 }
 

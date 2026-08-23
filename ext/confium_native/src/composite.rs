@@ -14,7 +14,7 @@
 use confium_composite::{CompositeSignature, ComponentSignature, VerificationResult};
 use ed25519_dalek::SigningKey;
 use magnus::{
-    exception, function, method, prelude::*, scan_args,
+    function, method, prelude::*, scan_args,
     typed_data::Obj, DataTypeFunctions, Error, IntoValue,
     Module, Object, RHash, Ruby, TryConvert, TypedData, Value,
 };
@@ -79,7 +79,7 @@ impl CompositeSig {
                 let details = new_details(&ruby);
                 confium_error(e.to_string(), "VerificationError", details)
             })?;
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(VerificationResultWrap { inner: result }))
     }
 }
@@ -133,7 +133,7 @@ impl VerificationResultWrap {
     }
 
     fn per_component(&self) -> Result<Value, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         let result = ruby.hash_new();
         for c in &self.inner.per_component {
             let entry = ruby.hash_new();
@@ -156,9 +156,7 @@ fn sign_ed25519(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash
     let pk_bytes = bytes_from_value(private_key)?;
     let msg = bytes_from_value(message)?;
     if pk_bytes.len() != 32 {
-        return Err(Error::new(
-            exception::arg_error(),
-            format!("Ed25519 private key must be 32 bytes, got {}", pk_bytes.len()),
+        return Err(crate::util::arg_error(format!("Ed25519 private key must be 32 bytes, got {}", pk_bytes.len()),
         ));
     }
     let mut pk_arr = [0u8; 32];
@@ -174,7 +172,7 @@ fn sign_ed25519(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash
                 Some(&msg),
                 Some(&e.to_string()),
             );
-            return Err(Error::new(exception::runtime_error(), e.to_string()));
+            return Err(crate::util::crypto_error(e.to_string(), "Composite.sign_ed25519", "ed25519"));
         }
     };
 
@@ -204,16 +202,14 @@ fn sign_p256(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash, E
     let pk_bytes = bytes_from_value(private_key)?;
     let msg = bytes_from_value(message)?;
     if pk_bytes.len() != 32 {
-        return Err(Error::new(
-            exception::arg_error(),
-            format!("P-256 private key must be 32 bytes, got {}", pk_bytes.len()),
+        return Err(crate::util::arg_error(format!("P-256 private key must be 32 bytes, got {}", pk_bytes.len()),
         ));
     }
     let mut arr = [0u8; 32];
     arr.copy_from_slice(&pk_bytes);
     use p256::ecdsa::{Signature, SigningKey, signature::Signer};
     let signing = SigningKey::from_bytes(&arr.into())
-        .map_err(|e| Error::new(exception::arg_error(), format!("invalid P-256 private key: {e}")))?;
+        .map_err(|e| crate::util::arg_error(format!("invalid P-256 private key: {e}")))?;
     let sig: Signature = match signing.try_sign(msg.as_slice()) {
         Ok(s) => s,
         Err(e) => {
@@ -224,7 +220,7 @@ fn sign_p256(ruby: &Ruby, private_key: Value, message: Value) -> Result<RHash, E
                 Some(&msg),
                 Some(&format!("sign error: {e}")),
             );
-            return Err(Error::new(exception::runtime_error(), format!("sign error: {e}")));
+            return Err(crate::util::crypto_error(format!("sign error: {e}"), "Composite.sign_p256", "ecdsa-p256"));
         }
     };
     let verifying = signing.verifying_key();
@@ -259,8 +255,8 @@ fn generate_ed25519_keypair(ruby: &Ruby) -> Result<RHash, Error> {
 fn parse_components(value: Value) -> Result<Vec<ComponentSignature>, Error> {
     let arr = magnus::RArray::try_convert(value)?;
     let mut out = Vec::with_capacity(arr.len());
-    for v in arr.each() {
-        let h: RHash = RHash::try_convert(v?)?;
+    for v in arr.into_iter() {
+        let h: RHash = RHash::try_convert(v)?;
         let algorithm: String = h.fetch::<_, String>("algorithm")?;
         let public_key: Value = h.fetch::<_, Value>("public_key")?;
         let signature: Value = h.fetch::<_, Value>("signature")?;

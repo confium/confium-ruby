@@ -3,6 +3,11 @@
 //! DRY consolidation: a single `bytes_from_value` + size cap + string
 //! conversion + typed-error helper shared by every subsystem module
 //! (composite, pki, tc, transparency, deployment, attributes).
+//!
+//! This module wraps magnus's deprecated `exception::*` constructors
+//! so the rest of the crate never touches them; their replacements
+//! need a `Ruby` handle, which the failure fallbacks here lack.
+#![allow(deprecated)]
 
 use magnus::prelude::*;
 use magnus::{exception, Error, RHash, RString, Ruby, TryConvert, Value};
@@ -13,6 +18,28 @@ use magnus::{exception, Error, RHash, RString, Ruby, TryConvert, Value};
 /// (cert bodies, sig material, JSON envelopes) and small enough to
 /// prevent trivial memory-exhaustion attacks.
 pub const MAX_INPUT_SIZE: usize = 1 << 20;
+
+/// Build a plain `RuntimeError`. Centralizes every raise site so the
+/// deprecated `magnus::exception::runtime_error()` fallback lives in
+/// exactly one place (its replacement needs a `Ruby` handle, which is
+/// unavailable when `Ruby::get()` itself fails).
+pub fn runtime(msg: impl Into<String>) -> Error {
+    let msg: String = msg.into();
+    match Ruby::get() {
+        Ok(ruby) => Error::new(ruby.exception_runtime_error(), msg),
+        Err(_) => Error::new(exception::runtime_error(), msg),
+    }
+}
+
+/// Build an `ArgumentError` — for bad argument shapes/ranges, the
+/// class callers should see before any Confium semantics apply.
+pub fn arg_error(msg: impl Into<String>) -> Error {
+    let msg: String = msg.into();
+    match Ruby::get() {
+        Ok(ruby) => Error::new(ruby.exception_arg_error(), msg),
+        Err(_) => Error::new(exception::arg_error(), msg),
+    }
+}
 
 /// Convert a Ruby value to bytes. Accepts a binary `String` (any
 /// encoding) or an `Array<Integer>`. Enforces a 1 MiB size cap.
@@ -30,10 +57,7 @@ pub fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
     arr.into_iter()
         .map(|i| {
             if !(0..=255).contains(&i) {
-                Err(Error::new(
-                    exception::arg_error(),
-                    format!("byte out of range 0..255: {i}"),
-                ))
+                Err(arg_error(format!("byte out of range 0..255: {i}")))
             } else {
                 Ok(i as u8)
             }
@@ -46,18 +70,15 @@ pub fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
 /// memory-exhaustion attacks.
 pub fn enforce_size(len: usize) -> Result<(), Error> {
     if len > MAX_INPUT_SIZE {
-        return Err(Error::new(
-            exception::arg_error(),
-            format!("input size {0} exceeds max {MAX_INPUT_SIZE}", len),
-        ));
+        return Err(arg_error(format!("input size {0} exceeds max {MAX_INPUT_SIZE}", len)));
     }
     Ok(())
 }
 
 /// Build a Ruby binary `String` from a byte slice. Avoids the UTF-8
-/// round-trip in `RString::buf_new` + `cat` for already-binary input.
-pub fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> RString {
-    let s = RString::buf_new(0);
+/// round-trip for already-binary input.
+pub fn bytes_to_rstring(ruby: &Ruby, bytes: &[u8]) -> RString {
+    let s = ruby.str_buf_new(0);
     s.cat(bytes);
     s
 }

@@ -2,7 +2,7 @@
 //!
 //! Confium ships RNP functionality baked into the native extension.
 
-use magnus::{exception, function, prelude::*, Error, Module, RModule, Ruby, TryConvert, Value};
+use magnus::{function, prelude::*, Error, Module, RModule, Ruby, TryConvert, Value};
 use rnp::ops::ArmorType;
 use rnp::{armor_bytes, dearmor_bytes};
 

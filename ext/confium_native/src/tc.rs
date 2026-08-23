@@ -19,10 +19,10 @@ use confium_tc_frost_p256::{
 };
 use confium_tc_cmp20::inprocess as cmp20_inprocess;
 use confium_tc_gg18::inprocess as gg18_inprocess;
-use magnus::{exception, function, method, prelude::*, DataTypeFunctions, Error, Module, Object, RHash, Ruby, TryConvert, TypedData, Value};
+use magnus::{function, method, DataTypeFunctions, Error, Module, RHash, Ruby, TryConvert, TypedData, Value};
 use p256::Scalar;
 
-use crate::util::threshold_error;
+use crate::util::{bytes_from_value, bytes_to_rstring, threshold_error};
 
 #[derive(TypedData, DataTypeFunctions)]
 #[magnus(class = "Confium::TC::FrostP256::Share", size)]
@@ -37,7 +37,7 @@ impl ShareWrap {
     }
 
     fn y_bytes(&self) -> Result<magnus::RString, Error> {
-        let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(bytes_to_rstring(&ruby, &self.y_bytes))
     }
 }
@@ -49,20 +49,16 @@ fn split_secret_into_shares(
 ) -> Result<magnus::RArray, Error> {
     let bytes = bytes_from_value(secret_bytes)?;
     if bytes.len() != 32 {
-        return Err(Error::new(
-            exception::arg_error(),
-            format!("secret must be exactly 32 bytes, got {}", bytes.len()),
+        return Err(crate::util::arg_error(format!("secret must be exactly 32 bytes, got {}", bytes.len()),
         ));
     }
     let secret_arr: [u8; 32] = bytes.as_slice().try_into().unwrap();
     let secret = scalar_from_bytes(&secret_arr).ok_or_else(|| {
-        Error::new(
-            exception::arg_error(),
-            "secret is not a valid P-256 scalar (reduce mod n failed)",
+        crate::util::arg_error("secret is not a valid P-256 scalar (reduce mod n failed)",
         )
     })?;
     let shares: Vec<Share> = split_secret(&secret, threshold, party_count);
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     let result = ruby.ary_new_capa(shares.len());
     for s in shares {
         result.push(ruby.obj_wrap(ShareWrap {
@@ -76,27 +72,25 @@ fn split_secret_into_shares(
 fn recover(shares_value: Value) -> Result<magnus::RString, Error> {
     let arr = magnus::RArray::try_convert(shares_value)?;
     let mut shares: Vec<Share> = Vec::with_capacity(arr.len());
-    for v in arr.each() {
-        let h: RHash = RHash::try_convert(v?)?;
+    for v in arr.into_iter() {
+        let h: RHash = RHash::try_convert(v)?;
         let x: u32 = h.fetch::<_, u32>("x")?;
         let y_value: Value = h.fetch::<_, Value>("y")?;
         let y_bytes = bytes_from_value(y_value)?;
         if y_bytes.len() != 32 {
-            return Err(Error::new(
-                exception::arg_error(),
-                format!("share y must be 32 bytes, got {}", y_bytes.len()),
+            return Err(crate::util::arg_error(format!("share y must be 32 bytes, got {}", y_bytes.len()),
             ));
         }
         let y_arr: [u8; 32] = y_bytes.as_slice().try_into().unwrap();
         let y = scalar_from_bytes(&y_arr).ok_or_else(|| {
-            Error::new(exception::arg_error(), "share y is not a valid P-256 scalar")
+            crate::util::arg_error("share y is not a valid P-256 scalar")
         })?;
         shares.push(Share { x, y });
     }
     let refs: Vec<&Share> = shares.iter().collect();
     let secret = recover_secret(&refs)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::runtime(e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     Ok(bytes_to_rstring(&ruby, scalar_to_bytes(&secret).as_ref()))
 }
 
@@ -114,14 +108,12 @@ fn sign(private_key_bytes: Value, message: Value) -> Result<RHash, Error> {
     let pk_bytes = bytes_from_value(private_key_bytes)?;
     let msg = bytes_from_value(message)?;
     if pk_bytes.len() != 32 {
-        return Err(Error::new(
-            exception::arg_error(),
-            format!("private key must be 32 bytes, got {}", pk_bytes.len()),
+        return Err(crate::util::arg_error(format!("private key must be 32 bytes, got {}", pk_bytes.len()),
         ));
     }
     let pk_arr: [u8; 32] = pk_bytes.as_slice().try_into().unwrap();
     let secret = scalar_from_bytes(&pk_arr).ok_or_else(|| {
-        Error::new(exception::arg_error(), "private key not a valid P-256 scalar")
+        crate::util::arg_error("private key not a valid P-256 scalar")
     })?;
     let kp = Keypair {
         secret_scalar: secret,
@@ -137,7 +129,7 @@ fn sign(private_key_bytes: Value, message: Value) -> Result<RHash, Error> {
                 Some(&msg),
                 Some(&e.to_string()),
             );
-            return Err(Error::new(exception::runtime_error(), e.to_string()));
+            return Err(crate::util::crypto_error(e.to_string(), "FrostP256.sign", "ecdsa-p256"));
         }
     };
     crate::audit::fire_event(
@@ -147,38 +139,14 @@ fn sign(private_key_bytes: Value, message: Value) -> Result<RHash, Error> {
         Some(&msg),
         None,
     );
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     let result = ruby.hash_new();
     result.aset("der", bytes_to_rstring(&ruby, &signed.der_bytes))?;
     result.aset("fixed", bytes_to_rstring(&ruby, &signed.fixed_bytes))?;
     Ok(result)
 }
 
-fn bytes_from_value(v: Value) -> Result<Vec<u8>, Error> {
-    use magnus::RString;
-    if let Ok(s) = RString::try_convert(v) {
-        return Ok(unsafe { s.as_slice() }.to_vec());
-    }
-    let arr: Vec<i64> = Vec::<i64>::try_convert(v)?;
-    arr.into_iter()
-        .map(|i| {
-            if !(0..=255).contains(&i) {
-                Err(Error::new(
-                    exception::arg_error(),
-                    format!("byte out of range 0..255: {i}"),
-                ))
-            } else {
-                Ok(i as u8)
-            }
-        })
-        .collect()
-}
 
-fn bytes_to_rstring(_ruby: &Ruby, bytes: &[u8]) -> magnus::RString {
-    let s = magnus::RString::buf_new(0);
-    s.cat(bytes);
-    s
-}
 
 // ===== ElGamal-P256 threshold encryption (KEM-style) =====
 
@@ -186,7 +154,7 @@ fn elgamal_encapsulate(ruby: &Ruby, public_key_bytes: Value) -> Result<RHash, Er
     let bytes = bytes_from_value(public_key_bytes)?;
     let pk = ElGamalPublicKey { bytes };
     let (ciphertext, shared_secret) = encapsulate(&pk)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::crypto_error(e.to_string(), "ElGamalP256.encapsulate", "elgamal-p256"))?;
     let result = ruby.hash_new();
     let ct_hash = ruby.hash_new();
     ct_hash.aset("c1", bytes_to_rstring(ruby, &ciphertext.c1))?;
@@ -210,8 +178,8 @@ fn elgamal_partial_decrypt(party_index: u32, share_bytes: Value, ciphertext_valu
         bytes: share_b,
     };
     let partial = partial_decrypt(&share, &ciphertext)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::crypto_error(e.to_string(), "ElGamalP256.partial_decrypt", "elgamal-p256"))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     let result = ruby.hash_new();
     result.aset("party_index", partial.party_index)?;
     result.aset("bytes", bytes_to_rstring(&ruby, &partial.bytes))?;
@@ -221,8 +189,8 @@ fn elgamal_partial_decrypt(party_index: u32, share_bytes: Value, ciphertext_valu
 fn elgamal_aggregate(partials_value: Value, threshold: u32, ciphertext_value: Value) -> Result<magnus::RString, Error> {
     let arr = magnus::RArray::try_convert(partials_value)?;
     let mut partials: Vec<PartialDecryption> = Vec::with_capacity(arr.len());
-    for v in arr.each() {
-        let h: RHash = RHash::try_convert(v?)?;
+    for v in arr.into_iter() {
+        let h: RHash = RHash::try_convert(v)?;
         let party_index: u32 = h.fetch::<_, u32>("party_index")?;
         let bytes_value: Value = h.fetch::<_, Value>("bytes")?;
         partials.push(PartialDecryption {
@@ -238,8 +206,8 @@ fn elgamal_aggregate(partials_value: Value, threshold: u32, ciphertext_value: Va
         c2: bytes_from_value(c2_value)?,
     };
     let shared = aggregate_partials(&partials, threshold, &ciphertext)
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
-    let ruby = Ruby::get().map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::crypto_error(e.to_string(), "ElGamalP256.aggregate_partials", "elgamal-p256"))?;
+    let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
     Ok(bytes_to_rstring(&ruby, &shared))
 }
 
@@ -317,8 +285,8 @@ fn cmp20_sign(
 ) -> Result<magnus::RString, Error> {
     let arr = magnus::RArray::try_convert(shares_value)?;
     let mut share_bytes: Vec<Vec<u8>> = Vec::with_capacity(arr.len());
-    for v in arr.each() {
-        let s = bytes_from_value(v?)?;
+    for v in arr.into_iter() {
+        let s = bytes_from_value(v)?;
         share_bytes.push(s);
     }
     let supplied = share_bytes.len();
@@ -389,8 +357,8 @@ fn gg18_sign(
 ) -> Result<magnus::RString, Error> {
     let arr = magnus::RArray::try_convert(shares_value)?;
     let mut share_bytes: Vec<Vec<u8>> = Vec::with_capacity(arr.len());
-    for v in arr.each() {
-        let s = bytes_from_value(v?)?;
+    for v in arr.into_iter() {
+        let s = bytes_from_value(v)?;
         share_bytes.push(s);
     }
     let supplied = share_bytes.len();

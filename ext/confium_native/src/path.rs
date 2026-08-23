@@ -10,7 +10,7 @@ use confium_pki::{
     path::{validate_path, CertPath},
     result::VerificationResult as PathVerificationResult,
 };
-use magnus::{exception, function, method, prelude::*, DataTypeFunctions, Error, Module, Ruby, TypedData, Value};
+use magnus::{function, method, prelude::*, DataTypeFunctions, Error, Module, Ruby, TypedData, Value};
 
 /// Wraps a confium_pki::path::VerificationResult.
 #[derive(TypedData, DataTypeFunctions)]
@@ -63,17 +63,17 @@ fn validate(args: &[Value]) -> Result<magnus::typed_data::Obj<PathResult>, Error
         Vec::new()
     } else {
         let arr = magnus::RArray::try_convert(intermediates_value)
-            .map_err(|e| Error::new(exception::arg_error(), e.to_string()))?;
+            .map_err(|e| crate::util::arg_error(e.to_string()))?;
         let mut out = Vec::with_capacity(arr.len());
-        for v in arr.each() {
-            out.push(extract_cert(v?, "intermediate")?);
+        for v in arr.into_iter() {
+            out.push(extract_cert(v, "intermediate")?);
         }
         out
     };
 
     let now = match now_iso8601 {
         Some(s) => chrono::DateTime::parse_from_rfc3339(&s)
-            .map_err(|e| Error::new(exception::arg_error(), format!("invalid time: {e}")))?
+            .map_err(|e| crate::util::arg_error(format!("invalid time: {e}")))?
             .with_timezone(&Utc),
         None => Utc::now(),
     };
@@ -86,7 +86,7 @@ fn validate(args: &[Value]) -> Result<magnus::typed_data::Obj<PathResult>, Error
     let result = validate_path(&path, now);
 
     let ruby = Ruby::get()
-        .map_err(|e| Error::new(exception::runtime_error(), e.to_string()))?;
+        .map_err(|e| crate::util::runtime(e.to_string()))?;
     Ok(ruby.obj_wrap(PathResult { inner: result }))
 }
 
@@ -98,10 +98,10 @@ fn extract_cert(value: Value, label: &str) -> Result<RustCert, Error> {
     // We re-parse those bytes into a fresh RustCert.
     let der_value: Value = value
         .funcall("to_der", ())
-        .map_err(|e| Error::new(exception::runtime_error(), format!("{}: cannot get DER: {e}", label)))?;
+        .map_err(|e| crate::util::parse_error(format!("{label}: cannot get DER: {e}"), "PathValidator.validate", Some("der"), None))?;
     let der = crate::util::bytes_from_value(der_value)?;
     RustCert::from_der(&der)
-        .map_err(|e| Error::new(exception::runtime_error(), format!("{}: invalid DER: {e}", label)))
+        .map_err(|e| crate::util::parse_error(format!("{label}: invalid DER: {e}"), "PathValidator.validate", Some("der"), None))
 }
 
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
