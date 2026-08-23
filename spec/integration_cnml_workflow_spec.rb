@@ -5,6 +5,7 @@ require 'fileutils'
 require 'time'
 require 'json'
 require 'digest'
+require_relative 'cert_fixture'
 
 # Integration test: simulate a CNML-style issuer workflow using every
 # subsystem exposed by confium-ruby v0.1.0. Not a unit test — exercises
@@ -16,15 +17,7 @@ RSpec.describe 'CNML-style end-to-end issuer workflow' do
     support_dir = File.expand_path('support', __dir__)
     FileUtils.mkdir_p(support_dir)
     @pem_path = File.join(support_dir, 'cnml_ca.pem')
-    @key_path = File.join(support_dir, 'cnml_ca.key')
-    unless File.exist?(@pem_path)
-      system(
-        'openssl req -x509 -newkey rsa:2048 -nodes ' \
-        "-keyout #{@key_path} -out #{@pem_path} -days 365 " \
-        "-subj '/CN=OIML Test CA/O=BIML'",
-        out: '/dev/null', err: '/dev/null'
-      ) or raise 'openssl failed'
-    end
+    CertFixture.write_pem(@pem_path, common_name: 'OIML Test CA') unless File.exist?(@pem_path)
   end
 
   it 'anchors a certificate in a transparency log with attribute policy' do
@@ -63,6 +56,7 @@ RSpec.describe 'CNML-style end-to-end issuer workflow' do
     # The above produces a 32-byte pseudo-hash of the cert for the tree;
     # in a real deployment the issuer would compute SHA-256(cert DER).
     require 'digest'
+    require_relative 'cert_fixture'
     artifact_hash = Digest::SHA256.digest(ca.to_der)
     tree = Confium::Transparency::MerkleTree.new
     seq = tree.append(artifact_hash)
