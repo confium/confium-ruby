@@ -52,43 +52,11 @@ jobs:
         run: |
           stubs="$RUNNER_TEMP/posix-stubs"
           mkdir -p "$stubs/sys"
-          printf '%s\n' '#pragma once' '#include <string.h>' \
-            'int ffs(int);' \
-            'int strcasecmp(const char *, const char *);' \
-            'int strncasecmp(const char *, const char *, size_t);' \
-            > "$stubs/strings.h"
-          printf '%s\n' '#pragma once' '#include <io.h>' '#include <process.h>' '#include <direct.h>' \
-            'typedef int pid_t;' 'typedef long ssize_t;' \
-            'int pipe(int *);' 'pid_t fork(void);' 'pid_t getpid(void);' \
-            'int execv(const char *, char *const *);' \
-            'int execvp(const char *, char *const *);' \
-            'int truncate(const char *, long long);' \
-            'int readlink(const char *, char *, size_t);' \
-            'int symlink(const char *, const char *);' \
-            'int link(const char *, const char *);' \
-            'unsigned int alarm(unsigned int);' \
-            > "$stubs/unistd.h"
-          printf '%s\n' '#pragma once' 'typedef struct DIR DIR;' \
-            'struct dirent { char d_name[1]; };' \
-            'DIR *opendir(const char *);' 'struct dirent *readdir(DIR *);' \
-            'int closedir(DIR *);' \
-            > "$stubs/dirent.h"
-          printf '%s\n' '#pragma once' '#define WNOHANG 1' \
-            '#define WIFEXITED(s) (1)' '#define WEXITSTATUS(s) (0)' \
-            'int wait(int *);' 'int waitpid(int, int *, int);' \
-            > "$stubs/sys/wait.h"
-          printf '%s\n' '#pragma once' '#include <time.h>' \
-            'struct timeval { long tv_sec; long tv_usec; };' \
-            'struct timezone { int dummy; };' \
-            'int gettimeofday(struct timeval *, struct timezone *);' \
-            > "$stubs/sys/time.h"
-          printf '%s\n' '#pragma once' '#include <sys/types.h>' \
-            > "$stubs/sys/select.h"
-          printf '%s\n' '#pragma once' '#define FNM_NOFLAGS 0' '#define FNM_PATHNAME 1' \
-            'int fnmatch(const char *, const char *, int);' \
-            > "$stubs/fnmatch.h"
-          printf '%s\n' '#pragma once' 'char *basename(char *);' 'char *dirname(char *);' \
-            > "$stubs/libgen.h"
+          # Parse-only stubs: ruby/win32.h provides the real win32
+          # world; these headers only need to EXIST for the parser.
+          for h in strings.h unistd.h dirent.h fnmatch.h libgen.h ieeefp.h sys/wait.h sys/time.h sys/select.h; do
+            printf '#pragma once\n' > "$stubs/$h"
+          done
           stub_path="$(cygpath -m "$stubs")"
           echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $stub_path" >> "$GITHUB_ENV"
           echo "stub include dir: $stub_path"
