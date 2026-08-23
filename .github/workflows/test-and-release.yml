@@ -54,9 +54,22 @@ jobs:
           mkdir -p "$stubs/sys"
           # Parse-only stubs: ruby/win32.h provides the real win32
           # world; these headers only need to EXIST for the parser.
-          for h in strings.h unistd.h dirent.h fnmatch.h libgen.h ieeefp.h sys/wait.h sys/time.h sys/select.h; do
+          for h in strings.h dirent.h fnmatch.h libgen.h ieeefp.h sys/wait.h sys/time.h sys/select.h; do
             printf '#pragma once\n' > "$stubs/$h"
           done
+          # unistd.h additionally supplies the pid_t/ssize_t typedefs
+          # ruby/config.h and win32.h use; only function declarations
+          # belong to the real headers and must NOT be stubbed
+          # (rb_w32_* wrappers declare their own).
+          {
+            printf '#pragma once\n'
+            printf '#include <io.h>\n'
+            printf '#include <process.h>\n'
+            printf '#include <direct.h>\n'
+            printf 'typedef int pid_t;\n'
+            printf 'typedef long long ssize_t;\n'
+          } > "$stubs/unistd.h"
+
           stub_path="$(cygpath -m "$stubs")"
           echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $stub_path" >> "$GITHUB_ENV"
           echo "stub include dir: $stub_path"
