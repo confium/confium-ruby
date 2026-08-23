@@ -70,20 +70,26 @@ jobs:
           ruby-version: ${{ matrix.abi }}
           bundler-cache: true
 
-      - name: Point bindgen at MSYS2 headers
-        # RubyInstaller rbconfig records HAVE_STRINGS_H; rb-sys bindgen
-        # then needs the MSYS2 POSIX headers on its include path. The
-        # windows runners ship MSYS2 at C:\msys64.
+      - name: Provide POSIX stubs for bindgen
+        # RubyInstaller rbconfig records HAVE_STRINGS_H, so rb-sys
+        # bindgen reaches for strings.h, which the MSVC-target clang
+        # has no provider for. The declarations only need to parse —
+        # the linked extension never calls them — so a stub header is
+        # sufficient and hermetic.
         if: runner.os == 'Windows'
         run: |
-          for d in "C:/msys64/ucrt64/include" "D:/msys64/ucrt64/include"; do
-            if [ -d "$d" ]; then
-              echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $d" >> "$GITHUB_ENV"
-              echo "MSYS include dir: $d"
-              exit 0
-            fi
-          done
-          echo "MSYS2 not found; bindgen may fail" >&2
+          stubs="$RUNNER_TEMP/posix-stubs"
+          mkdir -p "$stubs"
+          {
+            echo '/* POSIX decls for bindgen parsing only. */'
+            echo '#include <string.h>'
+            echo 'int ffs(int);'
+            echo 'int strcasecmp(const char *, const char *);'
+            echo 'int strncasecmp(const char *, const char *, size_t);'
+          } > "$stubs/strings.h"
+          stub_path="$(cygpath -m "$stubs")"
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $stub_path" >> "$GITHUB_ENV"
+          echo "stub include dir: $stub_path"
 
       - name: Compile extension into its ABI window
         run: |
@@ -159,6 +165,8 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             . "$HOME/.cargo/env"
             rustc --version
+            # cdylib on musl requires dynamic crt linkage
+            export RUSTFLAGS="-C target-feature=-crt-static"
             gem install rake rake-compiler rb_sys --no-document
             rake compile:release
             strip lib/confium_native/confium_native.so
