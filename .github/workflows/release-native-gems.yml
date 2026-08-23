@@ -6,9 +6,9 @@ name: release-native-gems
 # (x86_64/aarch64) and macOS (x86_64/arm64) on runners whose
 # architecture IS the target, then publishes each to RubyGems.
 #
-# Cross-compilation via rake-compiler-dock is not possible here: the
-# dock images are Ubuntu 20.04 (gcc 9.4) and the vendored RNP stack
-# needs Botan 3.12, which requires gcc 11+.
+# The extension is pure Rust (the vendored RNP/Botan C++ stack was
+# dropped when armor moved to Ruby), so every platform — including
+# Windows and musl — builds with just a Rust toolchain.
 #
 # One extension cannot span all supported Rubies: Ruby 3.2 broke the
 # 3.1 ABI (a 3.1-built extension segfaults on 3.2), and rb-sys
@@ -36,8 +36,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
+      # Windows and musl became possible once the vendored RNP
+      # (json-c/botan C/C++) build was dropped: the extension is now
+      # pure Rust, which the mingw and musl toolchains build natively.
       matrix:
-        platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin ]
+        platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin, x64-mingw-ucrt ]
         abi: [ '3.1', '3.2', '3.3' ]
         include:
           - platform: x86_64-linux
@@ -45,13 +48,16 @@ jobs:
           - platform: aarch64-linux
             runner: ubuntu-24.04-arm
           # macos-13 (Intel) is retired; macos-15-intel is the x86_64
-          # macOS runner. Windows is absent: the vendored RNP build
-          # (rnp-src → json-c, botan) has no MSVC/mingw story (see
-          # rakelib/native_gem.rake).
+          # macOS runner.
           - platform: x86_64-darwin
             runner: macos-15-intel
           - platform: arm64-darwin
             runner: macos-15
+          - platform: x64-mingw-ucrt
+            runner: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
 
@@ -70,7 +76,9 @@ jobs:
           ext="$(find lib/confium_native -maxdepth 1 -name 'confium_native.*' -type f)"
           # Strip local/debug symbols; the prebuilt gem has shipped
           # multi-MB to 73 MB binaries without this.
-          if [ "$(uname -s)" = Darwin ]; then strip -x "$ext"; else strip "$ext"; fi
+          if command -v strip >/dev/null; then
+            if [ "$(uname -s)" = Darwin ]; then strip -x "$ext"; else strip "$ext" || true; fi
+          fi
           mkdir -p "stage/${{ matrix.abi }}"
           cp "$ext" "stage/${{ matrix.abi }}/"
           ls -la "stage/${{ matrix.abi }}"
@@ -87,7 +95,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin ]
+        platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin, x64-mingw-ucrt ]
     steps:
       - uses: actions/checkout@v7
 
@@ -114,12 +122,99 @@ jobs:
           name: native-gem-${{ matrix.platform }}
           path: pkg/*-${{ matrix.platform }}.gem
 
+  musl:
+    # Alpine/musl builds happen in a container — no musl runner exists.
+    # The extension is pure Rust, so ruby:3.x-alpine + a Rust toolchain
+    # is all it takes. Builds, packages, and install-checks all three
+    # ABI windows in the one container.
+    name: native gem — x86_64-linux-musl
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ '3.1', '3.2', '3.3' ]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the extension in Alpine
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
+            apk add --no-cache rust cargo make binutils
+            gem install rake rake-compiler rb_sys --no-document
+            rake compile:release
+            strip lib/confium_native/confium_native.so
+            mkdir -p stage/${{ matrix.abi }}
+            mv lib/confium_native/confium_native.so stage/${{ matrix.abi }}/
+          '
+          # stage/<abi>/confium_native.so is picked up by the artifact
+          # upload below; packaging merges the three windows.
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-so-x86_64-linux-musl-${{ matrix.abi }}
+          path: stage
+
+  musl-package:
+    name: package — x86_64-linux-musl
+    needs: musl
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          path: so/
+          pattern: native-so-x86_64-linux-musl-*
+          merge-multiple: true
+      - name: Stage ABI windows and package
+        run: |
+          mkdir -p lib/confium_native
+          cp -R so/3.1 so/3.2 so/3.3 lib/confium_native/
+          bundle exec rake native_gem:package[x86_64-linux-musl]
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-gem-x86_64-linux-musl
+          path: pkg/*-x86_64-linux-musl.gem
+
+  musl-install-check:
+    name: install check — x86_64-linux-musl / Ruby ${{ matrix.abi }}
+    needs: musl-package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ '3.1', '3.2', '3.3' ]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-gem-x86_64-linux-musl
+          path: gems/
+
+      - name: Install and exercise the pre-built gem in Alpine
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
+            gem install --local /work/gems/confium-*-x86_64-linux-musl.gem --no-document
+            ruby -r confium -e "
+              kp = Confium::Composite.generate_ed25519_keypair
+              component = Confium::Composite.sign_ed25519(kp[\"private_key\"], \"smoke\")
+              result = Confium::Composite::Signature.new([component]).verify(\"smoke\")
+              abort \"verification failed\" unless result.all_verified?
+              puts \"musl roundtrip OK #{RUBY_VERSION}\"
+            "
+          '
+
   install-check:
     # Prove each platform gem installs and loads on every supported
     # Ruby before anything can publish.
     name: install check — ${{ matrix.platform }} / Ruby ${{ matrix.ruby }}
-    needs: package
+    needs: [ package, musl-package ]
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -148,6 +243,18 @@ jobs:
           - platform: arm64-darwin
             runner: macos-latest
             ruby: '3.4'
+          - platform: x64-mingw-ucrt
+            runner: windows-latest
+            ruby: '3.1'
+          - platform: x64-mingw-ucrt
+            runner: windows-latest
+            ruby: '3.2'
+          - platform: x64-mingw-ucrt
+            runner: windows-latest
+            ruby: '3.3'
+          - platform: x64-mingw-ucrt
+            runner: windows-latest
+            ruby: '3.4'
     steps:
       - uses: ruby/setup-ruby@v1
         with:
@@ -172,7 +279,7 @@ jobs:
 
   publish:
     name: Publish to RubyGems
-    needs: [ package, install-check ]
+    needs: [ package, install-check, musl-install-check ]
     # Tags only — a manual workflow_dispatch must never push (a failed
     # push still burns the version slot for the platform).
     if: contains(github.ref, 'refs/tags/v')

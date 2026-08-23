@@ -2,13 +2,10 @@
 
 # Pre-compiled native gems, built on native-arch runners.
 #
-# rake-compiler-dock cross-compilation is blocked for this gem: the
-# dock images (rake-compiler-dock 1.12, still Ubuntu 20.04) ship gcc
-# 9.4 and LLVM-10-era cross toolchains, while the vendored RNP stack
-# builds Botan 3.12, which requires gcc 11+ / clang 12+. Instead each
-# platform builds on a runner whose architecture IS the target
-# (ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15), where
-# the vendored C/C++ build compiles natively.
+# The extension is pure Rust, so every platform builds with just a
+# Rust toolchain on a runner whose architecture IS the target
+# (ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15,
+# windows-latest; musl builds inside an Alpine container).
 #
 # One .so cannot span every supported Ruby: Ruby 3.2 broke the 3.1
 # ABI (object shapes — a 3.1-built extension segfaults on 3.2), and
@@ -27,8 +24,10 @@
 NATIVE_GEM_PLATFORMS = %w[
   x86_64-linux
   aarch64-linux
+  x86_64-linux-musl
   x86_64-darwin
   arm64-darwin
+  x64-mingw-ucrt
 ].freeze
 
 namespace :native_gem do
@@ -62,8 +61,7 @@ namespace :native_gem do
     spec = Gem::Specification.load('confium.gemspec')
     spec.platform = Gem::Platform.new(platform)
     # Pre-built gem: ship the compiled extension instead of the Rust
-    # sources (the vendored RNP tree would bloat every platform
-    # gem) and run no extconf at install time. rb_sys exists for
+    # sources and run no extconf at install time. rb_sys exists for
     # extconf-based source builds only, so it is not a dependency
     # here — with it recorded, installing the platform gem offline
     # or with --local fails to resolve it.

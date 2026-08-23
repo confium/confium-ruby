@@ -150,11 +150,26 @@ module Confium
 
   module OpenPGP
     MESSAGE: String
+    PUBLIC_KEY: String
+    SECRET_KEY: String
+    SIGNATURE: String
+    CLEARTEXT: String
+    LABELS: Hash[String?, String]
+    CRC_POLY: Integer
+    CRC_INIT: Integer
+    B64_CHARS: Array[String]
+    CRC_TABLE: Array[Integer]
 
     def self.armor: (String data, ?String type) -> String
     def self.dearmor: (String data) -> String
-    def self._native_armor: (String data, String type) -> String
-    def self._native_dearmor: (String data) -> String
+
+    private
+
+    def self.extract_body: (String text) -> [ String, String? ]
+    def self.block_lines: (String text) -> Array[String]
+    def self.block_slice: (String normalized) -> String
+    def self.collect_data: (Array[String] lines) -> [ String, String? ]
+    def self.crc24_armor: (String bytes) -> String
   end
 end
 

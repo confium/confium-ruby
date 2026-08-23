@@ -10,7 +10,7 @@ Confium supports three deployment modes:
 * **Mode 2 — TC PKI replacement**: drop-in for existing PKI consumers (PKCS#11 server, OpenSSL 3.0 provider, JCE)
 * **Mode 3 — TC Certificate PKI**: institutional deployments with custom certificate formats (OIML CNML, BIPM, pharma, accreditation)
 
-This gem wraps the high-value Confium subsystems via a Rust native extension. Pre-compiled platform gems are published for Linux and macOS, so `gem install` needs no Rust toolchain there; other platforms build from source at install time with `rb_sys` + `magnus`. No separate C ABI library to install; everything is statically linked into the extension.
+This gem wraps the high-value Confium subsystems via a pure-Rust native extension (`rb_sys` + `magnus`, no C dependencies). Pre-compiled platform gems are published for Linux (glibc + musl), macOS, and Windows, so `gem install` needs no Rust toolchain there; other platforms build from source at install time.
 
 == Installation
 
@@ -32,17 +32,13 @@ $ gem install confium
 
 * Ruby ≥ 3.1
 * Nothing else on the pre-compiled platforms: `x86_64-linux`,
-  `aarch64-linux`, `x86_64-darwin`, `arm64-darwin` (each gem carries
-  one extension per Ruby C-ABI window)
+  `aarch64-linux`, `x86_64-linux-musl`, `x86_64-darwin`,
+  `arm64-darwin`, `x64-mingw-ucrt` (each gem carries one extension
+  per Ruby C-ABI window)
 
 Source builds (other platforms, or installing from the repo) also
-need:
-
-* Rust stable toolchain (`rustup default stable`)
-* C toolchain (clang/gcc/Xcode CLT)
-
-There is no separate `libconfium` to install — the extension
-statically links everything.
+need the Rust stable toolchain (`rustup default stable`) — and
+nothing else: the extension has no C dependencies to satisfy.
 
 == Quick start
 
