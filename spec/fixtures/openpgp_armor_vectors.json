@@ -1,0 +1,82 @@
+{
+  "message_small": {
+    "input_hex": "68656c6c6f20776f726c64",
+    "type": null,
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\naGVsbG8gd29ybGQ=\r\n=sDy3\r\n-----END PGP MESSAGE-----\r\n"
+  },
+  "message_small_roundtrip": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\naGVsbG8gd29ybGQ=\r\n=sDy3\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "68656c6c6f20776f726c64"
+  },
+  "message_binary": {
+    "input_hex": "62696e617279200001ff2064617461",
+    "type": null,
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nYmluYXJ5IAAB/yBkYXRh\r\n=aThr\r\n-----END PGP MESSAGE-----\r\n"
+  },
+  "message_binary_roundtrip": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nYmluYXJ5IAAB/yBkYXRh\r\n=aThr\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "62696e617279200001ff2064617461"
+  },
+  "typed_signature": {
+    "input_hex": "736f6d65207369676e6174757265206279746573736f6d65207369676e6174757265206279746573",
+    "type": "signature",
+    "armored": "-----BEGIN PGP SIGNATURE-----\r\n\r\nc29tZSBzaWduYXR1cmUgYnl0ZXNzb21lIHNpZ25hdHVyZSBieXRlcw==\r\n=SXaO\r\n-----END PGP SIGNATURE-----\r\n"
+  },
+  "typed_signature_roundtrip": {
+    "armored": "-----BEGIN PGP SIGNATURE-----\r\n\r\nc29tZSBzaWduYXR1cmUgYnl0ZXNzb21lIHNpZ25hdHVyZSBieXRlcw==\r\n=SXaO\r\n-----END PGP SIGNATURE-----\r\n",
+    "output_hex": "736f6d65207369676e6174757265206279746573736f6d65207369676e6174757265206279746573"
+  },
+  "typed_public_key": {
+    "input_hex": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+    "type": "public key",
+    "armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\r\n\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0s=\r\n=CVmc\r\n-----END PGP PUBLIC KEY BLOCK-----\r\n"
+  },
+  "typed_public_key_roundtrip": {
+    "armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\r\n\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL\r\nS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0s=\r\n=CVmc\r\n-----END PGP PUBLIC KEY BLOCK-----\r\n",
+    "output_hex": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b"
+  },
+  "typed_secret_key": {
+    "input_hex": "535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353",
+    "type": "secret key",
+    "armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\r\n\r\nU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NT\r\nU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NT\r\nU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NT\r\n=SF4q\r\n-----END PGP PRIVATE KEY BLOCK-----\r\n"
+  },
+  "typed_secret_key_roundtrip": {
+    "armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\r\n\r\nU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NT\r\nU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NT\r\nU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NT\r\n=SF4q\r\n-----END PGP PRIVATE KEY BLOCK-----\r\n",
+    "output_hex": "535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353535353"
+  },
+  "exact_48": {
+    "input_hex": "abababababababababababababababababababababababababababababababababababababababababababababababab",
+    "type": null,
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6ur\r\n=XtoR\r\n-----END PGP MESSAGE-----\r\n"
+  },
+  "exact_48_roundtrip": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6ur\r\n=XtoR\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "abababababababababababababababababababababababababababababababababababababababababababababababab"
+  },
+  "exact_96": {
+    "input_hex": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "type": null,
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\n=lecA\r\n-----END PGP MESSAGE-----\r\n"
+  },
+  "exact_96_roundtrip": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\n=lecA\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+  },
+  "exact_1": {
+    "input_hex": "7f",
+    "type": null,
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nfw==\r\n=j6tP\r\n-----END PGP MESSAGE-----\r\n"
+  },
+  "exact_1_roundtrip": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nfw==\r\n=j6tP\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "7f"
+  },
+  "dearmor_rewrapped": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\n\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nz\r\nc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc\r\n3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\n=lecA\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+  },
+  "dearmor_headers": {
+    "armored": "-----BEGIN PGP MESSAGE-----\r\nComment: differential fixture\r\nVersion: confium-capture\r\n\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N\r\n=lecA\r\n-----END PGP MESSAGE-----\r\n",
+    "output_hex": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+  }
+}

@@ -55,9 +55,5 @@ chrono = "0.4"
 hex = "0.4"
 serde_json = "1"
 
-# RNP (OpenPGP, RFC 9580) — hard-bundled with vendored feature so
-# librnp is compiled from source via rnp-src. No system librnp needed.
-rnp = { package = "rnp-rs", version = "0.1.10", features = ["vendored"] }
-
 [profile.release]
 lto = "off"

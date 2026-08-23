@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0] — 2026-08-23
+
+### Changed
+
+- **The native extension is pure Rust — the vendored RNP stack
+  (librnp + Botan + json-c, a full C/C++ build) is gone.** It was
+  compiled into every install but used only for ASCII armor, which
+  is now implemented in pure Ruby (RFC 9580 §6, byte-for-byte
+  compatible with the previous output; differential vectors in
+  spec/fixtures/openpgp_armor_vectors.json). Source builds now need
+  only a Rust toolchain — no C compiler, no cmake, and no network
+  fetch of C sources — and compile in ~2 minutes instead of ~15.
+
+### Added
+
+- **Windows (`x64-mingw-ucrt`) and musl Linux
+  (`x86_64-linux-musl`) platform gems**, unblocked by the
+  dependency removal: pure Rust builds natively under mingw and in
+  an Alpine container. Both are install-checked on every supported
+  Ruby before publishing, and Windows joins the test matrix.
+- `Confium::OpenPGP.dearmor` now verifies the CRC-24 checksum and
+  raises `Confium::ParseError` on malformed blocks (previously a
+  bare rnp failure).
+
 ## [0.3.4] — 2026-08-23
 
 ### Fixed
