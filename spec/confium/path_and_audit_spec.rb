@@ -9,7 +9,7 @@ RSpec.describe Confium::PKI::PathValidator do
     support_dir = File.expand_path('support', __dir__)
     FileUtils.mkdir_p(support_dir)
     @pem_path = File.join(support_dir, 'test.pem')
-    CertFixture.write_pem(@pem_path, cn: 'Test CA') unless File.exist?(@pem_path)
+    CertFixture.write_pem(@pem_path, common_name: 'Test CA') unless File.exist?(@pem_path)
   end
 
   let(:cert) { Confium::PKI::Certificate.from_pem(File.read(@pem_path)) }
