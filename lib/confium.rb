@@ -25,7 +25,7 @@ begin
     # Fall back to the flat source-build path only when the windowed
     # binary is absent; a present-but-unloadable binary must raise its
     # real dlopen error instead of masquerading as "not built".
-    dlext = RbConfig::CONFIG['DLEXT']
+    dlext = RbConfig::CONFIG['DLEXT'] || 'so'
     windowed = File.expand_path("confium_native/#{window}/confium_native.#{dlext}", __dir__)
     raise if File.exist?(windowed)
 
