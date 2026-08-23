@@ -134,7 +134,10 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: so/
-          pattern: native-so-${{ matrix.platform }}-*
+          # The -3.* suffix is load-bearing: native-so-x86_64-linux-*
+          # would also match the x86_64-linux-MUSL artifacts and merge
+          # foreign-libc binaries into the glibc gem.
+          pattern: native-so-${{ matrix.platform }}-3.*
           merge-multiple: true
 
       - name: Stage ABI windows and package
