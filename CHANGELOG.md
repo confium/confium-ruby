@@ -16,10 +16,11 @@
 ### Added
 
 - **Windows (`x64-mingw-ucrt`) and musl Linux
-  (`x86_64-linux-musl`) platform gems**, unblocked by the
-  dependency removal: pure Rust builds natively under mingw and in
-  an Alpine container. Both are install-checked on every supported
-  Ruby before publishing, and Windows joins the test matrix.
+  (`x86_64-linux-musl`, `aarch64-linux-musl`) platform gems**,
+  unblocked by the dependency removal: pure Rust builds natively
+  under mingw and in Alpine containers (aarch64 under QEMU). All
+  are install-checked on every supported Ruby before publishing,
+  and Windows joins the test matrix.
 - `Confium::OpenPGP.dearmor` now verifies the CRC-24 checksum and
   raises `Confium::ParseError` on malformed blocks (previously a
   bare rnp failure).
