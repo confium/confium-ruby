@@ -63,6 +63,7 @@ jobs:
 
           stub_path="$(cygpath -m "$stubs")"
           echo "BINDGEN_EXTRA_CLANG_ARGS=-isystem $stub_path" >> "$GITHUB_ENV"
+          echo "CARGO_BUILD_TARGET=x86_64-pc-windows-gnu" >> "$GITHUB_ENV"
           echo "stub include dir: $stub_path"
 
       - name: Build native extension
