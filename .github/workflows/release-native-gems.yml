@@ -172,6 +172,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Register QEMU binfmt handlers
+        if: matrix.docker_arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+
       - name: Build the extension in Alpine
         run: |
           docker run --platform "linux/${{ matrix.docker_arch }}" --rm -v "$PWD:/work" -w /work "ruby:${{ matrix.abi }}-alpine" sh -exc '
@@ -244,6 +248,10 @@ jobs:
         with:
           name: native-gem-${{ matrix.platform }}
           path: gems/
+
+      - name: Register QEMU binfmt handlers
+        if: matrix.docker_arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
 
       - name: Install and exercise the pre-built gem in Alpine
         run: |
