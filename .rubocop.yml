@@ -22,6 +22,12 @@ Metrics/BlockLength:
 Metrics/MethodLength:
   Max: 30
 
+# Spec fixtures assign a sequence of certificate attributes — the
+# branch count is the shape of the OpenSSL API, not complexity.
+Metrics/AbcSize:
+  Exclude:
+    - "spec/support/**/*"
+
 # FFI wrappers initialize native handles — there is no super chain.
 Lint/MissingSuper:
   Exclude:
