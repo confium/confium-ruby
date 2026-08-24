@@ -18,18 +18,29 @@ begin
   # 3.1 and 3.2 get exact-minor builds while 3.3 covers 3.3+).
   # Source builds install the extension flat, without a version
   # directory.
-  window = Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3') ? '3.3' : RUBY_VERSION[/\A\d+\.\d+/]
-  begin
-    require_relative "confium_native/#{window}/confium_native"
-  rescue LoadError
-    # Fall back to the flat source-build path only when the windowed
-    # binary is absent; a present-but-unloadable binary must raise its
-    # real dlopen error instead of masquerading as "not built".
-    dlext = RbConfig::CONFIG['DLEXT'] || 'so'
-    windowed = File.expand_path("confium_native/#{window}/confium_native.#{dlext}", __dir__ || '.')
-    raise if File.exist?(windowed)
-
+  minor = RUBY_VERSION[/\A\d+\.\d+/]
+  dlext = RbConfig::CONFIG['DLEXT'] || 'so'
+  candidates = Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3') ? [minor, '3.3'].uniq : [minor]
+  # Windows gems carry an exact-minor window per Ruby (a PE import
+  # names the version-specific ruby DLL); other platforms share the
+  # 3.3 window for 3.3+. Prefer the exact minor when present.
+  windowed = candidates.filter_map do |w|
+    path = File.expand_path("confium_native/#{w}/confium_native.#{dlext}", __dir__ || '.')
+    w if File.exist?(path)
+  end
+  if windowed.empty?
     require_relative 'confium_native/confium_native'
+  else
+    windowed.each do |w|
+      begin
+        require_relative "confium_native/#{w}/confium_native"
+        break
+      rescue LoadError => e
+        # A present-but-unloadable binary raises its real dlopen
+        # error once every window has been tried.
+        raise e if w == windowed.last
+      end
+    end
   end
 rescue LoadError => e
   warn 'confium: native extension not built — run `bundle exec rake compile`'
