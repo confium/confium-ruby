@@ -39,9 +39,14 @@ jobs:
       # Windows and musl became possible once the vendored RNP
       # (json-c/botan C/C++) build was dropped: the extension is now
       # pure Rust, which the mingw and musl toolchains build natively.
+      #
+      # Every supported minor gets its own window on every platform:
+      # PE imports name the version-specific ruby DLL, and Ruby 4.0
+      # additionally rejects 3.x-window TypedData with a class-identity
+      # TypeError — cross-major loads need exact windows everywhere.
       matrix:
         platform: [ x86_64-linux, aarch64-linux, x86_64-darwin, arm64-darwin, x64-mingw-ucrt ]
-        abi: [ '3.1', '3.2', '3.3' ]
+        abi: [ '3.1', '3.2', '3.3', '3.4', '4.0' ]
         include:
           - platform: x86_64-linux
             runner: ubuntu-latest
@@ -53,15 +58,6 @@ jobs:
             runner: macos-15-intel
           - platform: arm64-darwin
             runner: macos-15
-          # Windows PE imports name the ruby DLL (x64-ucrt-rubyXYZ.dll),
-          # so each supported Ruby needs its own exact-minor window —
-          # a 3.3-built dll cannot load under 3.4 (error 126).
-          - platform: x64-mingw-ucrt
-            abi: '3.4'
-            runner: windows-latest
-          - platform: x64-mingw-ucrt
-            abi: '4.0'
-            runner: windows-latest
           - platform: x64-mingw-ucrt
             runner: windows-latest
     defaults:
@@ -175,7 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        abi: [ '3.1', '3.2', '3.3', '4.0' ]
+        abi: [ '3.1', '3.2', '3.3', '3.4', '4.0' ]
         platform: [ x86_64-linux-musl, aarch64-linux-musl ]
         include:
           - platform: x86_64-linux-musl
@@ -249,7 +245,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        abi: [ '3.1', '3.2', '3.3', '4.0' ]
+        abi: [ '3.1', '3.2', '3.3', '3.4', '4.0' ]
         platform: [ x86_64-linux-musl, aarch64-linux-musl ]
         include:
           - platform: x86_64-linux-musl

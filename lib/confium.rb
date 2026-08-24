@@ -20,7 +20,11 @@ begin
   # directory.
   minor = RUBY_VERSION[/\A\d+\.\d+/]
   dlext = RbConfig::CONFIG['DLEXT'] || 'so'
-  candidates = Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3') ? [minor, '3.3'].uniq : [minor]
+  major = RUBY_VERSION[/\A\d+/].to_i
+  # 3.3-window binaries load on 3.3/3.4 only; a cross-major load
+  # (4.x) fails TypedData class checks, so the fallback applies
+  # within the 3.x line alone.
+  candidates = major == 3 && Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3') ? [minor, '3.3'].uniq : [minor]
   # Windows gems carry an exact-minor window per Ruby (a PE import
   # names the version-specific ruby DLL); other platforms share the
   # 3.3 window for 3.3+. Prefer the exact minor when present.
