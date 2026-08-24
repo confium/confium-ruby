@@ -4,6 +4,11 @@
 
 ### Changed
 
+- The native-extension ABI-window resolution moved out of
+  `lib/confium.rb` into `Confium::NativeWindows.candidates` — a pure
+  function now spec'd for every minor plus the cross-major edges
+  (this decision produced three release incidents; it was previously
+  testable only by installing eight platform gems).
 - `Confium::TC` session semantics moved into a deep
   `Confium::TC::SigningSession` (state machine, per-signer dedup,
   CMP20/GG18 combine); `Coordinator` (in-process) and
