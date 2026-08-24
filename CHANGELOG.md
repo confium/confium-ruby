@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.1] — 2026-08-24
+
+### Fixed
+
+- **Windows platform gems load on every supported Ruby.** A PE
+  import names the version-specific ruby DLL
+  (`x64-ucrt-ruby330.dll`), so the shared 3.3 window could not load
+  under 3.4 (Windows error 126). Windows gems now carry an exact
+  window per Ruby (3.1-3.4); the loader prefers the exact minor and
+  falls back to the shared 3.3 window on other platforms. The
+  mingw runtime is embedded (`-static-libgcc`).
+- 0.4.0 shipped as a source gem only — its platform publish was
+  correctly blocked by the failing Windows install-check; the
+  platform gems first appear here.
+
 ## [0.4.0] — 2026-08-23
 
 ### Changed
