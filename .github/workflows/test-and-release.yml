@@ -118,6 +118,33 @@ jobs:
       - name: Sinatra verifier integration test
         run: bash scripts/sinatra_integration_test.sh
 
+  pgp-verify:
+    # The pgp cargo feature (vendored librnp + Botan/json-c) is opt-in
+    # and never compiled by the default build or platform gems, so it
+    # rots silently unless a job builds it. Fixtures in
+    # spec/fixtures/openpgp were generated with gpg — no gpg needed
+    # at verify time.
+    name: OpenPGP feature
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          profile: minimal
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+
+      - name: Build native extension with the pgp feature
+        run: RB_SYS_CARGO_FEATURES=pgp bundle exec rake compile
+
+      - name: Run specs
+        run: bundle exec rspec
+
   lint:
     name: RuboCop + Steep
     runs-on: ubuntu-latest
