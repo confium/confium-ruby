@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `Confium::TC` session semantics moved into a deep
+  `Confium::TC::SigningSession` (state machine, per-signer dedup,
+  CMP20/GG18 combine); `Coordinator` (in-process) and
+  `NetworkCoordinator` (TCP) are now adapters over it. Behavior
+  changes from the old inline session Hashes: duplicate
+  commitments/shares from the same signer raise
+  `Confium::ValidationError` instead of counting twice toward the
+  threshold (a one-signer quorum spoof), and unknown session ids
+  raise `Confium::NotFoundError` instead of a bare `RuntimeError`.
+
 ### Added
 
 - **Opt-in OpenPGP signature verification** — `Confium::OpenPGP.verify_detached`

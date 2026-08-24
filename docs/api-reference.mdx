@@ -273,7 +273,14 @@ signature = coordinator.aggregate(sid)  # 64-byte (r, s), OpenSSL-verifiable
 ```
 
 `aggregate` runs the real CMP20/GG18 combine; below-threshold
-aggregation raises `Confium::ThresholdError`.
+aggregation raises `Confium::ThresholdError` with `have_count` /
+`need_count`. The session semantics live in
+`Confium::TC::SigningSession` (state machine, per-signer dedup, the
+combine); `Coordinator` is the in-process adapter and
+`NetworkCoordinator` the TCP/NDJSON adapter over the same sessions.
+One signer submitting twice never counts twice toward the threshold
+(duplicate submissions raise `Confium::ValidationError`), and an
+unknown session id raises `Confium::NotFoundError`.
 
 ## Confium::TC::NetworkCoordinator / SignerClient — multi-host signing
 

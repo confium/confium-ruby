@@ -58,8 +58,16 @@ RSpec.describe Confium::TC::Coordinator do
         .to raise_error(Confium::ThresholdError, /Threshold not met/)
     end
 
-    it 'raises on an unknown session' do
-      expect { coordinator.aggregate('nope') }.to raise_error(RuntimeError, /Unknown session/)
+    it 'rejects a second share from the same signer at submission' do
+      sid = coordinator.create_session(message: 'dup', threshold: 2)
+      coordinator.submit_share(sid, 'signer-0', kg['shares'].first)
+      expect { coordinator.submit_share(sid, 'signer-0', kg['shares'][1]) }
+        .to raise_error(Confium::ValidationError, /duplicate submission/)
+    end
+
+    it 'raises NotFoundError on an unknown session' do
+      expect { coordinator.aggregate('nope') }
+        .to raise_error(Confium::NotFoundError, /Unknown session/)
     end
   end
 
