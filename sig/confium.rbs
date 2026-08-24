@@ -472,10 +472,31 @@ module Confium::TC
     def result: () -> nil
   end
 
-  class Coordinator
+  class SigningSession
+    DEFAULT_UNLOCK_WINDOW: Integer
     SCHEMES: Hash[String, untyped]
+    attr_reader message: String
+    attr_reader threshold: Integer
+    attr_reader unlock_window: Integer
+    attr_reader scheme: String
+    attr_reader state: Symbol
+
+    def initialize: (message: String, threshold: Integer, ?unlock_window: Integer, ?scheme: String) -> void
+    def add_commitment: (String signer_id, String commitment_bytes) -> SigningSession
+    def add_share: (String signer_id, String share_bytes) -> SigningSession
+    def commitment_count: () -> Integer
+    def share_count: () -> Integer
+    def threshold_met?: () -> bool
+    def aggregate: () -> String
+
+    private
+
+    def record: (Hash[String, String] store, String signer_id, String bytes) -> void
+  end
+
+  class Coordinator
     attr_reader quorum_id: String
-    attr_reader sessions: Hash[String, Hash[Symbol, untyped]]
+    attr_reader sessions: Hash[String, SigningSession]
 
     def initialize: (quorum_id: String) -> void
     def create_session: (message: String, threshold: Integer, ?unlock_window: Integer, ?scheme: String) -> String
@@ -483,6 +504,10 @@ module Confium::TC
     def submit_commitment: (String session_id, String signer_id, String commitment_bytes) -> void
     def submit_share: (String session_id, String signer_id, String share_bytes) -> void
     def aggregate: (String session_id) -> String
+
+    private
+
+    def fetch: (String session_id) -> SigningSession
   end
 
   class NetworkCoordinator

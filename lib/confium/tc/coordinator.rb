@@ -3,9 +3,13 @@
 # Confium::TC::Coordinator coordinates an in-process threshold
 # signing session: signers submit commitments and shares at their own
 # pace; once the threshold is met, aggregation runs the real
-# threshold-ECDSA combine (CMP20 or GG18 — the same in-process
-# drivers behind Confium::TC::Cmp20 / Confium::TC::Gg18) and returns
-# a 64-byte (r, s) signature verifiable under the quorum public key.
+# threshold-ECDSA combine (CMP20 or GG18) and returns a 64-byte
+# (r, s) signature verifiable under the quorum public key.
+#
+# The session semantics (state machine, duplicate-signer rejection,
+# the combine) live in SigningSession; this class is the session
+# registry and quorum-scoped entry point. NetworkCoordinator is the
+# TCP/NDJSON adapter over the same sessions.
 #
 # Usage:
 #   coordinator = Confium::TC::Coordinator.new(quorum_id: "biml-root")
@@ -27,54 +31,38 @@ module Confium
         @sessions = {}
       end
 
-      SCHEMES = {
-        'CMP20-ECDSA-P256' => ->(shares, threshold, message) { Cmp20.sign(shares, threshold, message) },
-        'GG18-ECDSA-P256' => ->(shares, threshold, message) { Gg18.sign(shares, threshold, message) }
-      }.freeze
-
-      def create_session(message:, threshold:, unlock_window: 14_400, scheme: 'CMP20-ECDSA-P256')
-        raise ArgumentError, "unknown scheme: #{scheme} (known: #{SCHEMES.keys.join(', ')})" unless SCHEMES.key?(scheme)
-
+      def create_session(message:, threshold:, unlock_window: SigningSession::DEFAULT_UNLOCK_WINDOW,
+                         scheme: 'CMP20-ECDSA-P256')
         session_id = "session-#{@sessions.length + 1}"
-        @sessions[session_id] = {
-          message: message,
-          threshold: threshold,
-          unlock_window: unlock_window,
-          scheme: scheme,
-          state: :pending,
-          commitments: [],
-          shares: []
-        }
+        @sessions[session_id] = SigningSession.new(
+          message: message, threshold: threshold,
+          unlock_window: unlock_window, scheme: scheme
+        )
         session_id
       end
 
       def session_state(session_id)
-        @sessions.dig(session_id, :state)
+        fetch(session_id).state
       end
 
       def submit_commitment(session_id, signer_id, commitment_bytes)
-        session = @sessions[session_id] or raise "Unknown session: #{session_id}"
-        session[:commitments] << { signer_id: signer_id, bytes: commitment_bytes }
-        return unless session[:commitments].length >= session[:threshold]
-
-        session[:state] = :commitments_collected
+        fetch(session_id).add_commitment(signer_id, commitment_bytes)
       end
 
       def submit_share(session_id, signer_id, share_bytes)
-        session = @sessions[session_id] or raise "Unknown session: #{session_id}"
-        session[:shares] << { signer_id: signer_id, bytes: share_bytes }
+        fetch(session_id).add_share(signer_id, share_bytes)
       end
 
       def aggregate(session_id)
-        session = @sessions[session_id] or raise "Unknown session: #{session_id}"
-        raise ThresholdError, 'Threshold not met' if session[:shares].length < session[:threshold]
+        fetch(session_id).aggregate
+      end
 
-        session[:state] = :completed
-        SCHEMES.fetch(session[:scheme]).call(
-          session[:shares].map { |s| s[:bytes] },
-          session[:threshold],
-          session[:message]
-        )
+      private
+
+      def fetch(session_id)
+        @sessions.fetch(session_id) do
+          raise NotFoundError.new("Unknown session: #{session_id}", kind: :session, identifier: session_id)
+        end
       end
     end
   end
