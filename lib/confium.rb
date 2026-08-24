@@ -32,14 +32,12 @@ begin
     require_relative 'confium_native/confium_native'
   else
     windowed.each do |w|
-      begin
-        require_relative "confium_native/#{w}/confium_native"
-        break
-      rescue LoadError => e
-        # A present-but-unloadable binary raises its real dlopen
-        # error once every window has been tried.
-        raise e if w == windowed.last
-      end
+      require_relative "confium_native/#{w}/confium_native"
+      break
+    rescue LoadError => e
+      # A present-but-unloadable binary raises its real dlopen
+      # error once every window has been tried.
+      raise e if w == windowed.last
     end
   end
 rescue LoadError => e
