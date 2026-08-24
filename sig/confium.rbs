@@ -1,6 +1,10 @@
 module Confium
   VERSION: String
 
+  module NativeWindows
+    def self.candidates: (String ruby_version) -> Array[String]
+  end
+
   module Native
     def self.version: () -> String
     def self.loaded?: () -> bool

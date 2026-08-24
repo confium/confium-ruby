@@ -10,25 +10,14 @@
 # are loaded lazily via autoload — see lib/confium/<name>.rb.
 
 require_relative 'confium/version'
+require_relative 'confium/native_windows'
 
 begin
-  # Pre-built platform gems ship one extension per C-ABI window
-  # (Ruby 3.2 broke the 3.1 ABI — object shapes — and rb-sys
-  # references the VM pointer libruby stopped exporting in 3.3, so
-  # 3.1 and 3.2 get exact-minor builds while 3.3 covers 3.3+).
-  # Source builds install the extension flat, without a version
-  # directory.
-  minor = RUBY_VERSION[/\A\d+\.\d+/]
+  # Pre-built platform gems ship one extension per ABI window (the
+  # window rules live in Confium::NativeWindows). Source builds
+  # install the extension flat, without a version directory.
   dlext = RbConfig::CONFIG['DLEXT'] || 'so'
-  major = RUBY_VERSION[/\A\d+/].to_i
-  # 3.3-window binaries load on 3.3/3.4 only; a cross-major load
-  # (4.x) fails TypedData class checks, so the fallback applies
-  # within the 3.x line alone.
-  candidates = major == 3 && Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.3') ? [minor, '3.3'].uniq : [minor]
-  # Windows gems carry an exact-minor window per Ruby (a PE import
-  # names the version-specific ruby DLL); other platforms share the
-  # 3.3 window for 3.3+. Prefer the exact minor when present.
-  windowed = candidates.filter_map do |w|
+  windowed = Confium::NativeWindows.candidates(RUBY_VERSION).filter_map do |w|
     path = File.expand_path("confium_native/#{w}/confium_native.#{dlext}", __dir__ || '.')
     w if File.exist?(path)
   end
