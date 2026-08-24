@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Opt-in OpenPGP signature verification** — `Confium::OpenPGP.verify_detached`
+  and `Confium::OpenPGP.verify` (inline/clearsigned), backed by a vendored
+  librnp behind the `pgp` cargo feature. Public-key material is passed with
+  the call (String or Array). Platform gems keep building default features:
+  `Confium::OpenPGP::PGP_AVAILABLE` reports `false` there and the verify
+  methods raise with rebuild instructions (`RB_SYS_CARGO_FEATURES=pgp
+  bundle exec rake compile`). Armor stays pure Ruby and always available.
+  CI gains a `pgp-verify` job that compiles the feature and exercises the
+  real verification path against checked-in gpg-generated fixtures.
+
 ## [0.5.0] — 2026-08-24
 
 ### Added

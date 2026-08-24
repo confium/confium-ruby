@@ -176,9 +176,12 @@ module Confium
     CRC_INIT: Integer
     B64_CHARS: Array[String]
     CRC_TABLE: Array[Integer]
+    PGP_AVAILABLE: bool
 
     def self.armor: (String data, ?String type) -> String
     def self.dearmor: (String data) -> String
+    def self.verify_detached: (String message, String signature, ?String | Array[String] public_keys) -> Hash[String, untyped]
+    def self.verify: (String signed_data, ?String | Array[String] public_keys) -> Hash[String, untyped]
 
     private
 

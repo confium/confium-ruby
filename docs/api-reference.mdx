@@ -335,6 +335,44 @@ Confium::Policy.reset!
 
 See [the policy page](./policy.mdx) for details.
 
+## Confium::OpenPGP
+
+RFC 9580 armor (encode/decode) is pure Ruby and always available:
+
+```ruby
+Confium::OpenPGP.armor(bytes, Confium::OpenPGP::SIGNATURE)  # => armored String
+Confium::OpenPGP.dearmor(armored)                           # => binary String
+```
+
+Signature verification is backed by librnp and ships behind the
+opt-in `pgp` cargo feature — the vendored librnp drags in a full
+Botan/json-c C/C++ build that platform gems deliberately exclude.
+Check availability at runtime with `Confium::OpenPGP::PGP_AVAILABLE`
+(false on platform gems); without the feature the verify methods
+raise with rebuild instructions instead of pretending:
+
+```ruby
+result = Confium::OpenPGP.verify_detached(message, signature, public_keys)
+# => { "any_valid" => true,
+#      "signature_count" => 1,
+#      "signatures" => [{ "valid" => true, "status" => "Valid",
+#                         "key_id" => "5BD652AF...", "creation_time" => 1756...,
+#                         "expiration_time" => 0, "hash" => "SHA512" }] }
+
+result = Confium::OpenPGP.verify(clearsigned_data, public_keys)  # inline/clearsigned
+```
+
+`public_keys` is a String or Array of Strings (armored or binary
+public-key material) imported into the verification keyring. A
+cryptographically failed check is the answer, not an exception:
+`any_valid` is `false` with no signature entries. Input that is not
+an OpenPGP message at all raises `Confium::ParseError`. Build the
+extension yourself to enable it:
+
+```sh
+RB_SYS_CARGO_FEATURES=pgp bundle exec rake compile
+```
+
 ## Related
 
 - [Installation](./installation.mdx)

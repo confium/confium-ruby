@@ -9,6 +9,7 @@ mod attributes;
 mod composite;
 mod deployment;
 mod ers;
+mod openpgp_verify;
 mod path;
 mod pki;
 mod tc;
@@ -42,6 +43,9 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     confium.define_module_function("core_version", function!(core_version, 0))?;
 
     transparency::init(ruby, confium)?;
+    openpgp_verify::init(ruby, confium)?;
+    #[cfg(feature = "pgp")]
+    openpgp_verify::init_pgp(ruby, &confium)?;
     composite::init(ruby, confium)?;
     attributes::init(ruby, confium)?;
     pki::init(ruby, confium)?;

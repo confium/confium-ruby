@@ -16,6 +16,14 @@ crate-type = ["cdylib"]
 
 build = "build.rs"
 
+[features]
+# OpenPGP signature verification via a vendored librnp (librnp +
+# Botan + json-c). OFF by default: the C/C++ build would restore the
+# multi-minute compile times and heavy binaries 0.4.0 removed (armor
+# itself is pure Ruby). Source builders opt in; pre-compiled platform
+# gems always build default features.
+pgp = ["rnp"]
+
 [dependencies]
 # rb-sys for Ruby C API access.
 rb-sys = { version = "0.9.124", features = ["global-allocator"] }
@@ -57,3 +65,11 @@ serde_json = "1"
 
 [profile.release]
 lto = "off"
+
+# OpenPGP verification (feature "pgp") — vendored librnp via rnp-rs.
+# No system librnp needed; adds the Botan/json-c C/C++ build.
+[dependencies.rnp]
+package = "rnp-rs"
+version = "0.1.10"
+features = ["vendored"]
+optional = true
