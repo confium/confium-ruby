@@ -40,7 +40,7 @@ namespace :native_gem do
   desc 'Package the compiled extension as a pre-built platform gem'
   task :package, [:platform] do |_t, args|
     platform = args[:platform] || raise(ArgumentError, 'platform required')
-    windows = Dir['lib/confium_native/{3.1,3.2,3.3}/confium_native.{so,bundle}']
+    windows = Dir['lib/confium_native/[0-9].[0-9]/confium_native.{so,bundle,dll}']
     flat = Dir['lib/confium_native/confium_native.{so,bundle,dll}'].first
     if windows.empty?
       # Local flow: packaging the machine's own compile output, so the
