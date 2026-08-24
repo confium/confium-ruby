@@ -18,6 +18,7 @@ module Confium
     # external libconfium dylib, so it stays lazy.
     autoload :Session, 'confium/tc/session'
     require_relative 'tc/coordinator'
+    require_relative 'tc/network_coordinator'
     require_relative 'tc/share_file'
   end
 end

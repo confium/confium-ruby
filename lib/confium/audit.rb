@@ -124,3 +124,5 @@ module Confium
     end
   end
 end
+
+require_relative 'audit/otlp_sink'
