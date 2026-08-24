@@ -53,6 +53,12 @@ jobs:
             runner: macos-15-intel
           - platform: arm64-darwin
             runner: macos-15
+          # Windows PE imports name the ruby DLL (x64-ucrt-rubyXYZ.dll),
+          # so each supported Ruby needs its own exact-minor window —
+          # a 3.3-built dll cannot load under 3.4 (error 126).
+          - platform: x64-mingw-ucrt
+            abi: '3.4'
+            runner: windows-latest
           - platform: x64-mingw-ucrt
             runner: windows-latest
     defaults:
@@ -148,7 +154,7 @@ jobs:
         run: |
           ls -laR so/
           mkdir -p lib/confium_native
-          cp -R so/3.1 so/3.2 so/3.3 lib/confium_native/
+          cp -R so/. lib/confium_native/
           bundle exec rake native_gem:package[${{ matrix.platform }}]
 
       - uses: actions/upload-artifact@v7
@@ -226,7 +232,7 @@ jobs:
       - name: Stage ABI windows and package
         run: |
           mkdir -p lib/confium_native
-          cp -R so/3.1 so/3.2 so/3.3 lib/confium_native/
+          cp -R so/. lib/confium_native/
           bundle exec rake native_gem:package[${{ matrix.platform }}]
       - uses: actions/upload-artifact@v7
         with:
