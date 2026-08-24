@@ -146,6 +146,23 @@ module Confium
     class FileSink < Sink
       def initialize: (String path) -> void
     end
+
+    class OtlpSink < Sink
+      DEFAULT_ENDPOINT: String
+      SEVERITY: Hash[String, Integer]
+      attr_reader dropped: Integer
+      def initialize: (?endpoint: String, ?headers: Hash[String, String], ?service_name: String, ?timeout: Integer) -> void
+      def write: (Hash[String, untyped] record) -> void
+      def close: () -> void
+
+      private
+
+      def envelope: (Hash[String, untyped] record) -> Hash[String, untyped]
+      def headers: () -> Hash[String, String]
+      def log_record: (Hash[String, untyped] record) -> Hash[String, untyped]
+      def attributes_for: (Hash[String, untyped] record) -> Array[Hash[String, untyped]]
+      def parse_time: (untyped timestamp) -> Float
+    end
   end
 
   module OpenPGP
@@ -463,6 +480,41 @@ module Confium::TC
     def submit_commitment: (String session_id, String signer_id, String commitment_bytes) -> void
     def submit_share: (String session_id, String signer_id, String share_bytes) -> void
     def aggregate: (String session_id) -> String
+  end
+
+  class NetworkCoordinator
+    class RequestError < StandardError
+    end
+    HANDLERS: Hash[String, untyped]
+    attr_reader quorum_id: String
+    attr_reader port: Integer
+    def initialize: (quorum_id: String, ?host: String, ?port: Integer, ?coordinator: Coordinator) -> void
+    def start: () -> NetworkCoordinator
+    def stop: () -> nil
+    def running?: () -> bool
+
+    private
+
+    def accept_loop: () -> void
+    def serve: (untyped socket) -> void
+    def dispatch: (Hash[String, untyped] request) -> Hash[String, untyped]
+    def write_error: (untyped socket, String klass, String message) -> nil
+  end
+
+  class SignerClient
+    class RemoteError < StandardError
+      attr_reader remote_class: String
+      def initialize: (String remote_class, String message) -> void
+    end
+    def initialize: (?host: String, port: Integer) -> void
+    def create_session: (message: String, threshold: Integer, ?scheme: String) -> String
+    def submit_commitment: (String session_id, String signer_id, String commitment_bytes) -> bool
+    def submit_share: (String session_id, String signer_id, String share_bytes) -> bool
+    def aggregate: (String session_id) -> String
+
+    private
+
+    def call: (Hash[String, untyped] request) -> Hash[String, untyped]
   end
 
   class ShareFile

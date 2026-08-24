@@ -14,6 +14,9 @@ target :lib do
   signature 'sig'
   library 'json'
   library 'fileutils'
+  library 'time'
+  library 'socket'
+  library 'net-http'
 
   check 'lib'
 

@@ -4,6 +4,18 @@
 
 ### Added
 
+- **Ruby 4.0 support** — Windows ships an exact `4.0` ABI window;
+  every platform install-checks on Ruby 4.0; the test matrix gains
+  4.0 legs. (There is no Ruby 3.5 — 4.0 is the successor line.)
+- **Multi-host threshold signing**: `Confium::TC::NetworkCoordinator`
+  (TCP service, NDJSON + hex wire protocol) + `Confium::TC::SignerClient`
+  — signers on separate machines submit commitments and shares;
+  aggregation runs the real CMP20/GG18 combine and returns an
+  OpenSSL-verifiable signature. Plain TCP for loopback/private
+  networks; the upstream noise transport replaces it later.
+- **OpenTelemetry export**: `Confium::Audit::OtlpSink` ships every
+  audit record to an OTLP collector over OTLP/HTTP JSON (logs
+  signal, stdlib-only, failures drop-and-report).
 - `Confium::Composite::Signature#to_json` — instances remember their
   source (components or a canonical JSON document) and re-serialize
   losslessly, completing the JSON transport symmetry.

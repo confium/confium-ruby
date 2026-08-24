@@ -261,6 +261,52 @@ one-shot signing and integration tests; production deployments require
 Paillier-based MtA, which is tracked separately under
 `confium-tc-cmp20/mta`.
 
+## Confium::TC::Coordinator — threshold signing coordination
+
+```ruby
+coordinator = Confium::TC::Coordinator.new(quorum_id: "root")
+sid = coordinator.create_session(message: data, threshold: 3,
+                                 scheme: "CMP20-ECDSA-P256")
+coordinator.submit_commitment(sid, signer_id, commitment_bytes)
+coordinator.submit_share(sid, signer_id, share_bytes)
+signature = coordinator.aggregate(sid)  # 64-byte (r, s), OpenSSL-verifiable
+```
+
+`aggregate` runs the real CMP20/GG18 combine; below-threshold
+aggregation raises `Confium::ThresholdError`.
+
+## Confium::TC::NetworkCoordinator / SignerClient — multi-host signing
+
+Same coordinator behind TCP, for signers on separate machines
+(NDJSON protocol, hex-encoded binary fields):
+
+```ruby
+service = Confium::TC::NetworkCoordinator.new(quorum_id: "root").start
+client = Confium::TC::SignerClient.new(port: service.port)
+sid = client.create_session(message: data, threshold: 3)
+client.submit_share(sid, "signer-1", share_blob)
+signature = client.aggregate(sid)
+service.stop
+```
+
+Transport is plain TCP for loopback/private networks; the upstream
+noise-transport session protocol replaces it (TODO.full/01).
+
+## Confium::Audit::OtlpSink — OpenTelemetry export
+
+```ruby
+Confium::Audit.sink = Confium::Audit::OtlpSink.new(
+  endpoint: "http://localhost:4318/v1/logs",
+  headers: { "Authorization" => "Bearer #{token}" },
+  service_name: "confium-issuer"
+)
+```
+
+Every audit record ships to an OTLP collector as a log record
+(operation/result/algorithm as attributes, success→INFO /
+failure→ERROR). Delivery failures drop the record with a $stderr
+notice — telemetry must never break signing.
+
 ## Confium::Config::Manifest
 
 Deployment manifest (TOML) describing the deployment, tiers, and quorums.
