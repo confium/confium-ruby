@@ -453,11 +453,12 @@ module Confium::TC
   end
 
   class Coordinator
+    SCHEMES: Hash[String, untyped]
     attr_reader quorum_id: String
     attr_reader sessions: Hash[String, Hash[Symbol, untyped]]
 
     def initialize: (quorum_id: String) -> void
-    def create_session: (message: String, threshold: Integer, ?unlock_window: Integer) -> String
+    def create_session: (message: String, threshold: Integer, ?unlock_window: Integer, ?scheme: String) -> String
     def session_state: (String session_id) -> Symbol?
     def submit_commitment: (String session_id, String signer_id, String commitment_bytes) -> void
     def submit_share: (String session_id, String signer_id, String share_bytes) -> void

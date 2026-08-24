@@ -11,7 +11,13 @@
 # for the full interface specification.
 module Confium
   module TC
+    # The native extension defines Confium::TC; this namespace file is
+    # eager-required from confium.rb, so autoloads registered here do
+    # fire. Coordinator and ShareFile are pure Ruby and load with the
+    # namespace; Session wraps the engine via FFI and needs the
+    # external libconfium dylib, so it stays lazy.
     autoload :Session, 'confium/tc/session'
-    autoload :Coordinator, 'confium/tc/coordinator'
+    require_relative 'tc/coordinator'
+    require_relative 'tc/share_file'
   end
 end

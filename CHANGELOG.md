@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `Confium::Composite::Signature#to_json` — instances remember their
+  source (components or a canonical JSON document) and re-serialize
+  losslessly, completing the JSON transport symmetry.
+
+### Fixed
+
+- `Confium::TC::Coordinator` now aggregates REAL threshold-ECDSA
+  signatures: once the threshold is met, it runs the CMP20 or GG18
+  combine (selected per session via `scheme:`) and returns a 64-byte
+  signature verifiable under the quorum public key. Previously
+  `aggregate` concatenated the share bytes — a placeholder that
+  returned garbage. Unknown sessions below-threshold now raise
+  `Confium::ThresholdError`.
+- `Confium::TC::Coordinator` and `ShareFile` were unreachable after
+  `require "confium"`: the TC namespace file that registers them
+  never loaded because the native extension pre-defines
+  `Confium::TC` (the same orphaned-module trap PKI had). The
+  namespace file is now eager-required; `TC::Session` stays lazy —
+  it wraps the engine via FFI and needs the external libconfium
+  dylib.
+
 ## [0.4.1] — 2026-08-24
 
 ### Fixed

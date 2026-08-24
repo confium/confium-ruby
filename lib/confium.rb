@@ -92,7 +92,8 @@ require_relative 'confium/transparency'
 # of that module.
 require_relative 'confium/audit'
 
-# Eager-load the TC ShareFile Ruby companion. The native extension
-# defines `Confium::TC` as a Ruby module; this file adds the
-# `ShareFile` class for filesystem-backed share persistence.
-require_relative 'confium/tc/share_file'
+# Eager-load the TC namespace file: `Confium::TC` is native-defined,
+# so an autoload here would never fire (the PKI pattern). It
+# registers the pure-Ruby Session/Coordinator companions and the
+# ShareFile class for filesystem-backed share persistence.
+require_relative 'confium/tc'

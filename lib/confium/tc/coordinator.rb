@@ -1,15 +1,17 @@
 # frozen_string_literal: true
 
-# Confium::TC::Coordinator wraps the async session coordinator service.
-#
-# The coordinator enables globally distributed threshold signers to
-# participate when convenient — no simultaneity required.
+# Confium::TC::Coordinator coordinates an in-process threshold
+# signing session: signers submit commitments and shares at their own
+# pace; once the threshold is met, aggregation runs the real
+# threshold-ECDSA combine (CMP20 or GG18 — the same in-process
+# drivers behind Confium::TC::Cmp20 / Confium::TC::Gg18) and returns
+# a 64-byte (r, s) signature verifiable under the quorum public key.
 #
 # Usage:
 #   coordinator = Confium::TC::Coordinator.new(quorum_id: "biml-root")
 #   session_id = coordinator.create_session(message: data,
-#                                           threshold: 5,
-#                                           unlock_window: 14400)
+#                                           threshold: 3,
+#                                           scheme: "CMP20-ECDSA-P256")
 #   coordinator.submit_commitment(session_id, signer_id, commitment_bytes)
 #   # ... wait for T commitments ...
 #   coordinator.submit_share(session_id, signer_id, share_bytes)
@@ -25,12 +27,20 @@ module Confium
         @sessions = {}
       end
 
-      def create_session(message:, threshold:, unlock_window: 14_400)
+      SCHEMES = {
+        'CMP20-ECDSA-P256' => ->(shares, threshold, message) { Cmp20.sign(shares, threshold, message) },
+        'GG18-ECDSA-P256' => ->(shares, threshold, message) { Gg18.sign(shares, threshold, message) }
+      }.freeze
+
+      def create_session(message:, threshold:, unlock_window: 14_400, scheme: 'CMP20-ECDSA-P256')
+        raise ArgumentError, "unknown scheme: #{scheme} (known: #{SCHEMES.keys.join(', ')})" unless SCHEMES.key?(scheme)
+
         session_id = "session-#{@sessions.length + 1}"
         @sessions[session_id] = {
           message: message,
           threshold: threshold,
           unlock_window: unlock_window,
+          scheme: scheme,
           state: :pending,
           commitments: [],
           shares: []
@@ -57,11 +67,14 @@ module Confium
 
       def aggregate(session_id)
         session = @sessions[session_id] or raise "Unknown session: #{session_id}"
-        raise 'Threshold not met' if session[:shares].length < session[:threshold]
+        raise ThresholdError, 'Threshold not met' if session[:shares].length < session[:threshold]
 
         session[:state] = :completed
-        # In real implementation, calls FFI to aggregate shares
-        session[:shares].map { |s| s[:bytes] }.join
+        SCHEMES.fetch(session[:scheme]).call(
+          session[:shares].map { |s| s[:bytes] },
+          session[:threshold],
+          session[:message]
+        )
       end
     end
   end
