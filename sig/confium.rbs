@@ -232,10 +232,14 @@ module Confium::Composite
 
     private
 
+    def self.__native_new: (*untyped args) -> untyped
+    def self.canonical_json: (untyped json, untyped data) -> String
+
     def self.decode_binary_fields: (Hash[String, untyped] component) -> Hash[String, untyped]
 
     public
 
+    def to_json: (*untyped args) -> String
     def component_count: () -> Integer
     def algorithms: () -> Array[String]
     def verify: (String message_bytes, ?Hash[String, untyped] verifiers) -> VerificationResult

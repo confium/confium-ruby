@@ -16,6 +16,32 @@ module Confium
     class Signature
       BINARY_FIELDS = %w[public_key signature].freeze
 
+      # Serialize the components this instance was built from, in the
+      # canonical wire format. Instances remember their source: built
+      # from components, or from a JSON document (which is emitted
+      # verbatim when it was canonical).
+      def to_json(*_args)
+        cached = @confium_components_json
+        return cached if cached
+
+        components = @confium_components or
+          raise Confium::Error, 'Signature was not built with component data; use Signature.new or from_json'
+        Signature.components_to_json(components)
+      end
+
+      class << self
+        # magnus exposes the constructor as a class-level `new`;
+        # capture it before this reopen shadows it (plain `super`
+        # falls through to Class#new instead).
+        alias __native_new new
+
+        def new(*args)
+          sig = __native_new(*args)
+          sig.instance_variable_set(:@confium_components, args.first) if args.first.is_a?(Array)
+          sig
+        end
+      end
+
       def self.components_to_json(components)
         JSON.generate(components.map do |component|
           component.transform_values do |value|
@@ -35,7 +61,19 @@ module Confium
           raise ArgumentError, 'expected a non-empty "components" array'
         end
 
-        new(components.map { |c| decode_binary_fields(c) })
+        sig = new(components.map { |c| decode_binary_fields(c) })
+        sig.instance_variable_set(:@confium_components, components)
+        sig.instance_variable_set(:@confium_components_json, canonical_json(json, data))
+        sig
+      end
+
+      # The canonical wire form of whatever the caller handed us: a
+      # String passes through untouched; parsed structures are
+      # re-generated from their components array.
+      def self.canonical_json(json, data)
+        return json if json.is_a?(String)
+
+        JSON.generate(data.is_a?(Hash) ? data['components'] : data)
       end
 
       def self.decode_binary_fields(component)

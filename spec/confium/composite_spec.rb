@@ -109,4 +109,26 @@ RSpec.describe Confium::Composite do
       end
     end
   end
+  describe 'instance serialization' do
+    let(:kp) { described_class.generate_ed25519_keypair }
+    let(:component) { described_class.sign_ed25519(kp['private_key'], 'serialized') }
+
+    it 'round-trips a Signature built from components' do
+      sig = described_class::Signature.new([component])
+      revived = described_class::Signature.from_json(sig.to_json)
+      expect(revived.verify('serialized').all_verified?).to be(true)
+    end
+
+    it 'round-trips a Signature built from_json' do
+      json = described_class::Signature.components_to_json([component])
+      sig = described_class::Signature.from_json(json)
+      expect(described_class::Signature.from_json(sig.to_json).verify('serialized').all_verified?).to be(true)
+    end
+
+    it 'emits the same canonical wire format' do
+      json = described_class::Signature.components_to_json([component])
+      sig = described_class::Signature.from_json(json)
+      expect(sig.to_json).to eq(json)
+    end
+  end
 end
