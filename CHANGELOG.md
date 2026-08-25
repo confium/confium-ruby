@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- `Confium::PKI::Certificate.from_der` / `Csr.from_der` now report
+  the exact byte offset where truncated DER decoding failed
+  (`Confium::ParseError#offset` was always nil for certificate DER —
+  the number now crosses from the `der` decoder through
+  confium-pki). Requires and bumps confium-pki to 0.5.
+
 ## [0.6.0] — 2026-08-25
 
 ### Removed
