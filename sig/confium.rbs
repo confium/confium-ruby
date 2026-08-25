@@ -147,7 +147,7 @@ module Confium
       DEFAULT_ENDPOINT: String
       SEVERITY: Hash[String, Integer]
       attr_reader dropped: Integer
-      def initialize: (?endpoint: String, ?headers: Hash[String, String], ?service_name: String, ?timeout: Integer) -> void
+      def initialize: (?endpoint: String, ?headers: Hash[String, String], ?service_name: String, ?timeout: Integer, ?retries: Integer, ?retry_base: Float) -> void
       def write: (Hash[String, untyped] record) -> void
       def close: () -> void
 
@@ -158,6 +158,7 @@ module Confium
       def log_record: (Hash[String, untyped] record) -> Hash[String, untyped]
       def attributes_for: (Hash[String, untyped] record) -> Array[Hash[String, untyped]]
       def parse_time: (untyped timestamp) -> Float
+      def deliver: (String body) -> untyped
     end
   end
 

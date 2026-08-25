@@ -16,19 +16,24 @@ module Confium
     #     service_name: 'confium-issuer'
     #   )
     #
-    # Delivery is synchronous per record; failures are reported on
-    # $stderr and the record is dropped (the audit core's policy — a
-    # telemetry outage must never break signing). stdlib only.
+    # Delivery is synchronous per record, retried with exponential
+    # backoff (retries: attempts after the first, base doubled per
+    # attempt). After the final failure the record is dropped with a
+    # $stderr report — the audit core's policy: a telemetry outage
+    # must never break signing. stdlib only.
     class OtlpSink < Sink
       DEFAULT_ENDPOINT = 'http://localhost:4318/v1/logs'
       SEVERITY = { 'success' => 9, 'failure' => 17, 'error' => 17 }.freeze # INFO / ERROR
 
-      def initialize(endpoint: DEFAULT_ENDPOINT, headers: {}, service_name: 'confium', timeout: 5)
+      def initialize(endpoint: DEFAULT_ENDPOINT, headers: {}, service_name: 'confium', timeout: 5,
+                     retries: 2, retry_base: 0.1)
         super()
         @uri = URI.parse(endpoint)
         @headers = headers
         @service_name = service_name
         @timeout = timeout
+        @retries = retries
+        @retry_base = retry_base
         @dropped = 0
       end
 
@@ -37,8 +42,7 @@ module Confium
 
       def write(record)
         payload = envelope(record)
-        response = Net::HTTP.post(@uri, JSON.generate(payload), headers.merge('Content-Type' => 'application/json'))
-        raise "collector responded #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+        deliver(JSON.generate(payload))
       rescue StandardError => e
         @dropped += 1
         warn "confium: OTLP delivery failed, audit record dropped (##{@dropped}): #{e.class}: #{e.message}"
@@ -47,6 +51,19 @@ module Confium
       def close; end
 
       private
+
+      # Attempts grow the backoff: retry_base * 2**attempt. When
+      # retry_base is 0 (specs) retries run without delay.
+      def deliver(body)
+        (@retries + 1).times do |attempt|
+          sleep(@retry_base * (2**attempt)) if attempt.positive? && @retry_base.positive?
+
+          response = Net::HTTP.post(@uri, body, headers.merge('Content-Type' => 'application/json'))
+          return response if response.is_a?(Net::HTTPSuccess)
+
+          raise "collector responded #{response.code}" if attempt == @retries
+        end
+      end
 
       def headers
         { 'User-Agent' => "confium-otlp-sink #{Confium::VERSION}" }.merge(@headers)

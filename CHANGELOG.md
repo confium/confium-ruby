@@ -32,6 +32,11 @@
 
 ### Added
 
+- `Confium::Audit::OtlpSink` retries failed deliveries with
+  exponential backoff (`retries:`, `retry_base:` — 2 retries at
+  100 ms base by default) before dropping a record. Telemetry
+  outages still never break signing; a flaky collector now
+  survives single failures.
 - **Opt-in OpenPGP signature verification** — `Confium::OpenPGP.verify_detached`
   and `Confium::OpenPGP.verify` (inline/clearsigned), backed by a vendored
   librnp behind the `pgp` cargo feature. Public-key material is passed with
