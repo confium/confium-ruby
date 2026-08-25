@@ -28,6 +28,11 @@ Metrics/AbcSize:
   Exclude:
     - "spec/cert_fixture.rb"
 
+# Keyword arguments are configuration for sink/builder initializers —
+# they don't create positional-list call-site burden.
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
 # FFI wrappers initialize native handles — there is no super chain.
 Lint/MissingSuper:
   Exclude:

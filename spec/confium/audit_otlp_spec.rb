@@ -93,3 +93,76 @@ RSpec.describe Confium::Audit::OtlpSink do
     expect(request['headers']['authorization']).to eq('Bearer token')
   end
 end
+
+# Returns +failures+ 500s, then 200s forever; records every request.
+class FlakyCollector
+  attr_reader :port, :hits
+
+  def initialize(failures)
+    @hits = 0
+    @failures = failures
+    server = TCPServer.new('127.0.0.1', 0)
+    @port = server.addr[1]
+    Thread.new do
+      loop do
+        serve(server.accept)
+      end
+    rescue IOError
+      break
+    end
+  end
+
+  def serve(client)
+    headers = {}
+    until (line = client.readline).strip.empty?
+      key, value = line.split(':', 2)
+      headers[key.strip.downcase] = value.strip if value
+    end
+    client.read(headers['content-length'].to_i)
+    @hits += 1
+    if @hits <= @failures
+      client.write("HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n")
+    else
+      client.write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}")
+    end
+    client.close
+  end
+
+  def stop
+    nil
+  end
+end
+
+describe 'retry with backoff' do
+  let(:flaky_record) do
+    {
+      'operation' => 'composite_sign',
+      'result' => 'success',
+      'timestamp' => '2026-08-24T12:00:00Z'
+    }
+  end
+
+  it 'retries a failed delivery and succeeds on the second attempt' do
+    collector = FlakyCollector.new(1)
+    sink = Confium::Audit::OtlpSink.new(
+      endpoint: "http://127.0.0.1:#{collector.port}/v1/logs", retries: 2, retry_base: 0
+    )
+
+    sink.write(flaky_record)
+
+    expect(collector.hits).to eq(2)
+    expect(sink.dropped).to eq(0)
+  end
+
+  it 'drops the record only after the retries are exhausted' do
+    collector = FlakyCollector.new(99)
+    sink = Confium::Audit::OtlpSink.new(
+      endpoint: "http://127.0.0.1:#{collector.port}/v1/logs", retries: 2, retry_base: 0
+    )
+
+    sink.write(flaky_record)
+
+    expect(collector.hits).to eq(3)
+    expect(sink.dropped).to eq(1)
+  end
+end
