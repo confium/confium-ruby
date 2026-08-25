@@ -12,8 +12,6 @@ module Confium
 
   def self.core_version: () -> String
 
-  # Bridge into the FFI layer used by the Digest/CFM companions.
-  def self.call_ffi: (Symbol function, *untyped args) -> untyped
 
   class Error < StandardError
     attr_reader details: Hash[Symbol, untyped]
@@ -77,12 +75,6 @@ module Confium
       def self.args: (untyped message, untyped details_hash, Hash[Symbol, untyped] kwargs) -> [ String?, Hash[Symbol, untyped] ]
       def args: (untyped message, untyped details_hash, Hash[Symbol, untyped] kwargs) -> [ String?, Hash[Symbol, untyped] ]
     end
-  end
-
-  module Crypto
-    def self.register: (Symbol name, untyped klass) -> untyped
-    def self.lookup: (Symbol name) -> untyped
-    def self.interfaces: () -> Array[Symbol]
   end
 
   module Policy
@@ -446,34 +438,6 @@ module Confium::TC
   module Gg18
     def self.keygen: (Integer threshold, Integer party_count) -> Hash[String, untyped]
     def self.sign: (Array[String] shares, Integer threshold, String message_bytes) -> String
-  end
-
-  class Session
-    attr_reader scheme: String
-    attr_reader threshold: Integer
-    attr_reader num_parties: Integer
-    attr_reader party_index: Integer
-    attr_reader state: Symbol
-
-    def initialize: (scheme: String, threshold: Integer, num_parties: Integer, party_index: Integer) -> void
-    def set_local_share: (String share_bytes) -> void
-    def complete?: () -> bool
-    def result: () -> untyped
-  end
-
-  # Placeholder for the multi-party TC session interface; the real
-  # orchestration is wired through the extension in a future release.
-  class SessionStub
-    attr_reader scheme: String
-    attr_reader threshold: Integer
-    attr_reader party_count: Integer
-    attr_reader this_party_idx: Integer
-    attr_reader round: Integer
-
-    def initialize: (scheme: String, threshold: Integer, party_count: Integer, this_party_idx: Integer) -> void
-    def complete?: () -> bool
-    def round_step: (Array[untyped] incoming_messages) -> Hash[Symbol, untyped]
-    def result: () -> nil
   end
 
   class SigningSession
