@@ -36,6 +36,21 @@ RSpec.describe Confium::PKI::Certificate do
       round = described_class.from_der(der)
       expect(round.fingerprint_sha256).to eq(cert.fingerprint_sha256)
     end
+
+    it 'reports the exact truncation offset for incomplete DER' do
+      der = cert.to_der
+      expect(der.bytesize).to be > 40
+
+      error = nil
+      begin
+        described_class.from_der(der.byteslice(0, 20))
+      rescue Confium::ParseError => e
+        error = e
+      end
+
+      expect(error).not_to be_nil
+      expect(error.offset).to eq(20)
+    end
   end
 
   describe '#fingerprint_sha256' do

@@ -33,8 +33,9 @@ pub struct Certificate {
 impl Certificate {
     fn from_der(bytes: Value) -> Result<Obj<Self>, Error> {
         let der = bytes_from_value(bytes)?;
-        let cert = RustCert::from_der(&der)
-            .map_err(|e| parse_error(e.to_string(), "Certificate.from_der", Some("der"), None))?;
+        let cert = RustCert::from_der(&der).map_err(|e| {
+            parse_error(e.to_string(), "Certificate.from_der", Some("der"), e.der_offset())
+        })?;
         let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: cert }))
     }
@@ -101,8 +102,9 @@ pub struct Csr {
 impl Csr {
     fn from_der(bytes: Value) -> Result<Obj<Self>, Error> {
         let der = bytes_from_value(bytes)?;
-        let csr = RustCsr::from_der(&der)
-            .map_err(|e| parse_error(e.to_string(), "Csr.from_der", Some("der"), None))?;
+        let csr = RustCsr::from_der(&der).map_err(|e| {
+            parse_error(e.to_string(), "Csr.from_der", Some("der"), e.der_offset())
+        })?;
         let ruby = Ruby::get().map_err(|e| crate::util::runtime(e.to_string()))?;
         Ok(ruby.obj_wrap(Self { inner: csr }))
     }
@@ -299,7 +301,7 @@ impl SignedData {
 #[derive(TypedData, DataTypeFunctions)]
 #[magnus(class = "Confium::PKI::CMS::VerificationResult", size)]
 pub struct CmsVerificationResult {
-    pub inner: confium_pki::cms::VerificationResult,
+    pub inner: confium_pki::cms::CmsVerificationResult,
 }
 
 impl CmsVerificationResult {
