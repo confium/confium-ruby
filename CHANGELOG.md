@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Removed
+
+- The orphaned C-ABI layer: `Confium::Lib`, `Confium::CFM`,
+  `Confium::FFI`, `Confium::Digest`, `Confium::Crypto`,
+  `Confium::TC::Session` (the C-ABI wrapper) and
+  `Confium::TC::SessionStub`. None of these were loaded by the gem,
+  none worked — they called `Confium::call_ffi`, a method that never
+  existed (the RBS carried a phantom declaration only to keep the
+  type checker green over them). The magnus extension is the only
+  binding layer; see docs/adr/0005.
+
 ### Changed
 
 - The native-extension ABI-window resolution moved out of
