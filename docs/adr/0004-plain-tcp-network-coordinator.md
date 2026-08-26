@@ -7,7 +7,7 @@ Accepted (stopgap; revisit when the upstream noise transport lands).
 ## Context
 
 Multi-host signing needed a transport before the upstream
-per-party session protocol (TODO.full/01) delivers the
+per-party session protocol delivers the
 noise-transport replacement.
 
 ## Decision
