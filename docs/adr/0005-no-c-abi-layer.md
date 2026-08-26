@@ -31,5 +31,5 @@ own ADR, not a revival of these files.
 - No `ffi`-gem-based path exists; do not re-add one as a "fallback".
 - `Confium::TC::SessionStub` (an interface-shape placeholder) is
   gone too; the real per-party session protocol is tracked in
-  TODO.full/01 and will land behind the SigningSession seam.
+  the upstream session-protocol work and will land behind the SigningSession seam.
 - The RBS declares only what actually runs.
