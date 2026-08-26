@@ -40,10 +40,10 @@ confium-pki = "0.5.6"
 confium-store = "0.5.8"
 confium-deployment = "0.3"
 confium-tc = "0.3.1"
-confium-tc-frost-p256 = "0.3"
-confium-tc-elgamal-p256 = "0.3"
-confium-tc-cmp20 = "0.3.1"
-confium-tc-gg18 = "0.3.1"
+confium-tc-frost-p256 = "0.4"
+confium-tc-elgamal-p256 = "0.4"
+confium-tc-cmp20 = "0.4"
+confium-tc-gg18 = "0.4"
 
 # Per-party session protocol: the tc-core 0.4 registry line. The 0.3-era
 # in-process drivers above keep their own registry harmlessly.
