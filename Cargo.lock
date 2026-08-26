@@ -542,23 +542,19 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-cmp20"
-version = "0.3.1"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f28758121e44a86beefdf54a63428ab9bd9ec7a3797f7c065351b876518815c"
+checksum = "58d95093a36282370c3920cc0453f080d3e567afaa340063f44b3dbe1a60bca5"
 dependencies = [
- "confium-tc 0.3.1",
- "confium-tc-core 0.3.0",
- "crypto-bigint 0.5.5",
- "elliptic-curve 0.13.8",
- "hex",
+ "confium-tc 0.4.7",
+ "crypto-bigint 0.7.5",
+ "elliptic-curve 0.14.1",
+ "getrandom 0.4.3",
  "inventory",
  "num-bigint",
- "num-integer",
- "num-traits",
- "p256 0.13.2",
+ "p256 0.14.0",
  "rand",
  "sha2 0.10.9",
- "snafu 0.8.9",
  "zeroize",
 ]
 
@@ -612,15 +608,15 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-elgamal-p256"
-version = "0.3.0"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "113058b4f2c468c2b3e8c218e88bd43aa282af99c121936ae0bb73d9051371a8"
+checksum = "fec4a5bdef07e17ae0ae0098fd761166c8bb1586f22117bb64e7ea09c1883559"
 dependencies = [
- "elliptic-curve 0.13.8",
- "p256 0.13.2",
+ "getrandom 0.4.3",
+ "p256 0.14.0",
  "serde",
- "sha2 0.10.9",
  "thiserror 1.0.69",
+ "zeroize",
 ]
 
 [[package]]
@@ -639,34 +635,30 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-frost-p256"
-version = "0.3.0"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7da5dc941047eb374b15ee3a31e78df1a07036a95aab48b134ee2c3d86b621d"
+checksum = "9bddf1ab23eb1cfd9d8d6823c5e473a9392a30b6e12cf4889c44612508f865d9"
 dependencies = [
- "elliptic-curve 0.13.8",
- "hex",
- "p256 0.13.2",
- "rand_core 0.6.4",
- "serde",
- "sha2 0.10.9",
+ "elliptic-curve 0.14.1",
+ "getrandom 0.4.3",
+ "p256 0.14.0",
  "thiserror 1.0.69",
+ "zeroize",
 ]
 
 [[package]]
 name = "confium-tc-gg18"
-version = "0.3.1"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e3522da6c2352ff26f1a0719781e8f392cdfb7c264c681c87d0f0207540384"
+checksum = "45894d305019521a9960dfda5a8ba9d4f7b2b10d9a874905780d75e3d14d264f"
 dependencies = [
- "confium-tc 0.3.1",
- "confium-tc-core 0.3.0",
- "crypto-bigint 0.5.5",
- "elliptic-curve 0.13.8",
- "hex",
+ "confium-tc 0.4.7",
+ "crypto-bigint 0.7.5",
+ "elliptic-curve 0.14.1",
+ "getrandom 0.4.3",
  "inventory",
- "p256 0.13.2",
+ "p256 0.14.0",
  "sha2 0.10.9",
- "snafu 0.8.9",
  "zeroize",
 ]
 
@@ -989,7 +981,6 @@ dependencies = [
  "digest 0.10.7",
  "elliptic-curve 0.13.8",
  "rfc6979 0.4.0",
- "serdect 0.2.0",
  "signature 2.2.0",
  "spki 0.7.3",
 ]
@@ -1004,6 +995,7 @@ dependencies = [
  "digest 0.11.3",
  "elliptic-curve 0.14.1",
  "rfc6979 0.6.0",
+ "serdect",
  "signature 3.0.0",
  "spki 0.8.0",
  "zeroize",
@@ -1056,7 +1048,6 @@ dependencies = [
  "pkcs8 0.10.2",
  "rand_core 0.6.4",
  "sec1 0.7.3",
- "serdect 0.2.0",
  "subtle",
  "zeroize",
 ]
@@ -1078,6 +1069,7 @@ dependencies = [
  "pkcs8 0.11.0",
  "rand_core 0.10.1",
  "sec1 0.8.1",
+ "serdect",
  "subtle",
  "zeroize",
 ]
@@ -1720,7 +1712,6 @@ dependencies = [
  "ecdsa 0.16.9",
  "elliptic-curve 0.13.8",
  "primeorder 0.13.6",
- "serdect 0.2.0",
  "sha2 0.10.9",
 ]
 
@@ -1734,6 +1725,7 @@ dependencies = [
  "elliptic-curve 0.14.1",
  "primefield",
  "primeorder 0.14.0",
+ "serdect",
  "sha2 0.11.0",
 ]
 
@@ -1854,7 +1846,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
 dependencies = [
  "elliptic-curve 0.13.8",
- "serdect 0.2.0",
 ]
 
 [[package]]
@@ -1866,7 +1857,7 @@ dependencies = [
  "elliptic-curve 0.14.1",
  "once_cell",
  "primefield",
- "serdect 0.4.3",
+ "serdect",
  "wnaf",
 ]
 
@@ -2133,7 +2124,6 @@ dependencies = [
  "der 0.7.10",
  "generic-array",
  "pkcs8 0.10.2",
- "serdect 0.2.0",
  "subtle",
  "zeroize",
 ]
@@ -2148,6 +2138,7 @@ dependencies = [
  "ctutils",
  "der 0.8.1",
  "hybrid-array",
+ "serdect",
  "subtle",
  "zeroize",
 ]
@@ -2213,16 +2204,6 @@ version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
 dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serdect"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
-dependencies = [
- "base16ct 0.2.0",
  "serde",
 ]
 
