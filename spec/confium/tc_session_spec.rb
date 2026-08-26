@@ -30,10 +30,14 @@ RSpec.describe Confium::TC::Session do
   end
 
   # DKG output: [u32 pubkey_len][pubkey][u32 share_len][share].
+  # Parse via unpack1 offsets — String#[] with computed indexes
+  # misbehaves when the blob carries a non-binary default encoding
+  # (Windows: the native ext returns UTF-8-tagged strings).
   def parse_dkg_output(blob)
-    pub_len = blob[0, 4].unpack1('N')
-    pubkey = blob[4, pub_len]
-    share = blob[4 + pub_len + 4, blob[4 + pub_len + 4, 4].unpack1('N')]
+    pub_len = blob.unpack1('N')
+    pubkey = blob.unpack1("x4 a#{pub_len}")
+    share_len = blob.unpack1("x#{4 + pub_len}N")
+    share = blob.unpack1("x#{8 + pub_len} a#{share_len}")
     [pubkey, share]
   end
 
