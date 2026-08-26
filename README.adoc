@@ -18,7 +18,7 @@ Add to your Gemfile:
 
 [source,ruby]
 ----
-gem "confium", "~> 0.3"
+gem "confium", "~> 0.6"
 ----
 
 Or install directly:
@@ -78,18 +78,38 @@ kp = Confium::TC::FrostP256.generate_keypair
 shares = Confium::TC::FrostP256.split_secret(kp["private_key"], 3, 5)
 recovered = Confium::TC::FrostP256.recover_secret(shares.first(3).map { |s| { "x" => s.x, "y" => s.y_bytes } })
 recovered == kp["private_key"]  # => true
+
+# Distributed key generation + 2-of-3 FROST-ed25519 signing (each party
+# holds its own Confium::TC::Session and only exchanges round messages)
+parties = %w[alice bob carol]
+sessions = parties.each_with_index.map do |id, i|
+  Confium::TC::Session.new("FROST-ed25519-dkg", parties: parties, threshold: 2, this_party_idx: i)
+end
+# run rounds: session.round_step(messages_in) -> {"outgoing" => [...], "complete" => bool}
+# broadcast "outgoing" payloads between sessions until every session is complete
+dkg_share = sessions.first.result  # this party's share (embeds the group public key)
+
+signers = sessions.first(2).map.with_index do |s, i|
+  Confium::TC::Session.new("FROST-ed25519",
+                           parties: parties.first(2), threshold: 2, this_party_idx: i,
+                           local_share: dkg_share, message: "authentic message")
+end
+# run rounds as above; the completed session's #result is an RFC 8032
+# Ed25519 signature verifiable under the group public key
 ----
 
-== API surface (v0.3)
+== API surface (v0.6)
 
 === `Confium::Transparency`
 - `MerkleTree.new` / `#append(artifact_hash)` / `#root` / `#length` / `#empty?` / `#inclusion_proof(seq)`
 - `InclusionProof#sequence` / `#steps` / `#verify(root)`
+- `Ots.stamp(hash)` / `Ots.verify(receipt, hash)` — OpenTimestamps anchoring interface (pure-Ruby stub; calendar-server wiring lands with the Rust client)
 
 === `Confium::Composite` — PQ migration
 - `.generate_ed25519_keypair` → `{ private_key:, public_key: }`
 - `.sign_ed25519(private_key, message)` → component Hash
-- `Signature.new(components)` / `#verify(message)` / `#component_count` / `#algorithms`
+- `Signature.new(components)` / `#verify(message)` / `#component_count` / `#algorithms` / `#to_json`
+- `.from_json(json)` / `.components_to_json(components)` / `.canonical_json(json, data)`
 - `VerificationResult#all_verified?` / `#per_component`
 
 === `Confium::Attributes` — threshold policy DSL
@@ -99,11 +119,14 @@ recovered == kp["private_key"]  # => true
 - DSL: `min_count("attr", n)`, `min_distinct("attr", n)`, `any("attr")`, `all("attr")`, `none("attr")`, `and(...)`, `or(...)`, `not(p)`
 
 === `Confium::PKI`
-- `Certificate.from_der(bytes)` / `.from_pem(str)` / `#to_der` / `#to_pem` / `#fingerprint_sha256` / `#serial_hex` / `#not_before` / `#not_after` / `#valid_at?(iso8601)` / `#public_key_bytes`
+- `Certificate.from_der(bytes)` / `.from_pem(str)` / `#to_der` / `#to_pem` / `#fingerprint_sha256` / `#serial_hex` / `#not_before` / `#not_after` / `#valid_at?(iso8601)` / `#public_key_bytes`; DER parse failures carry a byte `offset` in the error details
+- `CertificateBuilder` / `CMS::SignedDataBuilder` — build certificates and signed data in Ruby
+- `PathValidator.validate(leaf, intermediates, root, now_iso8601 = nil)` → `PathValidationResult` (chain validation leaf → root at a point in time)
 - `CSR.from_der` / `.from_pem` / `#to_der` / `#to_pem`
 - `CMS::SignedData.from_json` / `#to_json` / `#signer_count` / `#content_type` / `#content` / `#certificate_count` / `#certificate_at(i)`
 - `CMS::Content#bytes` / `#length`
 - `XMLDSig.canonicalize(xml)` / `.canonicalize_exclusive(xml)` (Canonical XML RFC 3076 + Exclusive C14N)
+- `Cnml` — institutional certificate workflow helpers
 
 === `Confium::Identity` — actor roles
 - `.actor_types` → `["manufacturer", "testing_lab", "issuing_authority_officer", "biml_director", "quorum_coordinator", "verifier"]`
@@ -122,6 +145,45 @@ recovered == kp["private_key"]  # => true
 - `.encapsulate(public_key_bytes)` → `{ ciphertext: { c1:, c2: }, shared_secret: }`
 - `.partial_decrypt(party_index, share_bytes, ciphertext)` → `{ party_index:, bytes: }`
 - `.aggregate_partials(partials, threshold, ciphertext)` → shared_secret bytes
+
+=== `Confium::TC::Cmp20` / `Confium::TC::Gg18` — threshold ECDSA protocols
+- `.keygen(threshold, parties)` → `{ public_key, shares }`
+- `.sign(shares, public_key, message)` → DER ECDSA signature
+
+=== `Confium::TC::Session` — per-party threshold sessions (real FROST)
+- `Session.new(scheme, parties:, threshold:, this_party_idx:, local_share: nil, message: nil)` — `"FROST-ed25519-dkg"` for distributed key generation, `"FROST-ed25519"` for signing (pass the DKG share and the message)
+- `#scheme_name` / `#threshold` / `#party_count` / `#this_party_idx` / `#round` / `#complete?`
+- `#round_step(messages)` → `{ "outgoing" => [{from, to, round, payload}...], "complete" => bool }` — feed each round's incoming messages, broadcast the outgoing ones
+- `#result` — after DKG: share blob (group public key + party share); after signing: RFC 8032 Ed25519 signature
+
+=== `Confium::TC::Coordinator` — quorum signing orchestration
+- `Coordinator.new(quorum_id:)` / `#create_session(message:, threshold:, scheme: "CMP20-ECDSA-P256")` / `#submit_commitment` / `#submit_share` / `#aggregate` / `#session_state`
+- `SigningSession#add_commitment` / `#add_share` / `#threshold_met?` / `#aggregate` — the seam every transport adapts to
+- `NetworkCoordinator` — TCP/NDJSON server (`#start` / `#stop` / `#running?`); `SignerClient` — remote submit + aggregate with typed `RemoteError`
+- `ShareFile` — encrypted share-file persistence
+
+=== `Confium::Store::Keystore` — key handles and remote signing
+- `Keystore.new(backend, **options)` / `.backends`
+- `#sign(key_id, algorithm, message)` → signature bytes (sign-with-handle contract; cloud KMS backends `aws-kms` / `gcp-kms` / `azure-keyvault` via cargo features)
+
+=== `Confium::Audit` — structured audit trail
+- `Audit.sink =` / `Audit.sink` / `Audit.enabled?` / `Audit.record(...)`
+- `Sink` (base) / `MemorySink` / `StderrSink` / `FileSink`
+- `OtlpSink.new(endpoint:, headers:, service_name:, ...)` — OTLP/HTTP export with retry and `#dropped` counter
+
+=== `Confium::OpenPGP`
+- `.armor(data, type)` / `.dearmor(data)` — RFC 9580 §6 ASCII armor with CRC-24 (pure Ruby)
+- `.verify_detached(message, signature, keys)` / `.verify(...)` — real signature verification when the extension is built with the `pgp` feature; `PGP_AVAILABLE` reports it
+
+=== `Confium::ERS` — evidence records
+- `EvidenceRecord.build_initial(...)` / `#renew(...)` / `#renewal_count` (RFC 4998 / RFC 6283 archival)
+
+=== `Confium::Policy` / `Confium::SecureBytes`
+- `Policy.jurisdiction = :eu` — jurisdictional algorithm policy (EU/US profiles; SM2/SM3/SM4 for CN planned)
+- `SecureBytes.wrap(raw)` — zeroize-on-clear wrapper for private keys, shares, and secrets (`#bytes` non-destructive read, `#clear`)
+
+=== Errors
+- Typed error hierarchy (`ParseError`, `ThresholdError`, `VerificationError`, `PolicyViolationError`, ...) — native failures surface positional `details` hashes (including DER byte offsets for parse errors)
 
 == Development
 
