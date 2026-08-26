@@ -77,6 +77,15 @@ module Confium
     end
   end
 
+  module Store
+    def self.backends: () -> Array[String]
+
+    class Keystore
+      def initialize: (String backend, ?Hash[String, String] options) -> void
+      def sign: (String key_id, String algorithm, String message) -> String
+    end
+  end
+
   module Policy
     JURISDICTIONS: Hash[Symbol, Hash[Symbol, untyped]]
 

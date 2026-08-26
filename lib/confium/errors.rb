@@ -12,8 +12,17 @@ module Confium
   class Error < StandardError
     attr_reader :details
 
-    def initialize(message = nil, details: {})
-      @details = details.transform_keys(&:to_sym)
+    # The native extension constructs errors positionally
+    # (message, details_hash) — the same shape every typed subclass
+    # accepts via Errors::Coerce. Accepting it here keeps the whole
+    # family uniform; the keyword form still works.
+    def initialize(message = nil, details_hash = nil, details: {})
+      base = if details_hash.is_a?(Hash) && !details_hash.empty?
+               details_hash
+             else
+               details
+             end
+      @details = base.transform_keys(&:to_sym)
       super(message)
     end
 

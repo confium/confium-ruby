@@ -329,6 +329,22 @@ manifest.validate         # => Array<String> — problems, empty when valid
 manifest.valid?           # => Boolean
 ```
 
+## Confium::Store
+
+Keystore access over the store layer, including the remote-sign
+path (the sign-with-handle contract):
+
+```ruby
+Confium::Store.backends          # => ["memory", "filesystem", ...]
+ks = Confium::Store::Keystore.new("memory")
+ks.sign(key_id, algorithm, message)  # => binary String
+```
+
+`#sign` works with remote-holding backends (cloud KMS via source
+builds that opt into their cargo features); local backends raise a
+typed `Confium::Error` (`details[:what]` explains the capability
+gap). Errors from the store carry `details[:operation]`.
+
 ## Confium::Policy
 
 Jurisdictional algorithm/key-size rules and FIPS mode toggle.
