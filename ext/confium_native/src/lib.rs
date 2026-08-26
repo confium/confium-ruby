@@ -14,6 +14,7 @@ mod path;
 mod pki;
 mod store;
 mod tc;
+mod tc_session;
 mod transparency;
 mod util;
 
@@ -54,6 +55,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     path::init(ruby, confium)?;
     deployment::init(ruby, confium)?;
     tc::init(ruby, confium)?;
+    tc_session::init(ruby, confium)?;
     audit::init(ruby, confium)?;
     ers::init(ruby, confium)?;
     Ok(())
