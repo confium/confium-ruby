@@ -45,6 +45,11 @@ confium-tc-elgamal-p256 = "0.3"
 confium-tc-cmp20 = "0.3.1"
 confium-tc-gg18 = "0.3.1"
 
+# Per-party session protocol: the tc-core 0.4 registry line. The 0.3-era
+# in-process drivers above keep their own registry harmlessly.
+confium-tc-session = { package = "confium-tc-core", version = "0.4.7" }
+confium-tc-frost-ed25519 = "0.4.7"
+
 # Newly published shared crypto crates (confium product restructuring).
 confium-tc-core = "0.3"
 confium-crypto-vss = "0.3"

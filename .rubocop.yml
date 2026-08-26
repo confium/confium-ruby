@@ -27,6 +27,7 @@ Metrics/MethodLength:
 Metrics/AbcSize:
   Exclude:
     - "spec/cert_fixture.rb"
+    - "spec/confium/tc_session_spec.rb"
 
 # Keyword arguments are configuration for sink/builder initializers —
 # they don't create positional-list call-site burden.
