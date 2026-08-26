@@ -261,6 +261,41 @@ one-shot signing and integration tests; production deployments require
 Paillier-based MtA, which is tracked separately under
 `confium-tc-cmp20/mta`.
 
+## Confium::TC::Session — per-party threshold protocol sessions
+
+One session per signer process, driving the real FROST-ed25519
+rounds. Each party feeds `round_step` the messages received from
+peers and sends on its own outgoing — the long-term share never
+leaves the process. This is the per-party half of multi-host
+signing; `NetworkCoordinator` is the transport half.
+
+```ruby
+# DKG: every party derives the same group public key.
+dkg = %w[p0 p1 p2].each_index.map do |i|
+  Confium::TC::Session.new("FROST-ed25519-dkg",
+                           parties: %w[p0 p1 p2],
+                           threshold: 2, this_party_idx: i)
+end
+# ... run rounds, broadcasting each round's outgoing messages ...
+
+blob = dkg[0].result  # length-prefixed pubkey || share (72 bytes)
+
+# Signing: the session's local_share is the party's FULL DKG output
+# blob (it embeds the group public key FROST needs for the challenge
+# and cannot derive from the bare scalar).
+sess = Confium::TC::Session.new("FROST-ed25519",
+                                parties: %w[p0 p1 p2],
+                                threshold: 2, this_party_idx: 0,
+                                local_share: blob,
+                                message: "payload")
+# ... run rounds; every signing party produces the SAME 64-byte
+# RFC-8032 signature, verifiable under the group public key.
+```
+
+Accessors: `scheme_name`, `threshold`, `party_count`,
+`this_party_idx`, `round`, `complete?`. Messages are Hashes with
+string keys (`from`, `to`, `round`, `payload`).
+
 ## Confium::TC::Coordinator — threshold signing coordination
 
 ```ruby
