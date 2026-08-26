@@ -12,6 +12,7 @@ mod ers;
 mod openpgp_verify;
 mod path;
 mod pki;
+mod store;
 mod tc;
 mod transparency;
 mod util;
@@ -49,6 +50,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     composite::init(ruby, confium)?;
     attributes::init(ruby, confium)?;
     pki::init(ruby, confium)?;
+    store::init(ruby, confium)?;
     path::init(ruby, confium)?;
     deployment::init(ruby, confium)?;
     tc::init(ruby, confium)?;

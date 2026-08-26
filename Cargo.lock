@@ -290,7 +290,7 @@ dependencies = [
  "chrono",
  "confium-api",
  "confium-net",
- "confium-store",
+ "confium-store 0.3.0",
  "confium-tc-core",
  "data-encoding",
  "hex",
@@ -464,6 +464,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "confium-store"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5559e7f26bcf9f6dd3a76cf7eb0cf0684966c504cf662efef14f69ade8103e26"
+dependencies = [
+ "inventory",
+ "snafu 0.9.2",
+]
+
+[[package]]
 name = "confium-tc"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -473,7 +483,7 @@ dependencies = [
  "confium-api",
  "confium-coordinator",
  "confium-net",
- "confium-store",
+ "confium-store 0.3.0",
  "confium-tc-keys",
  "data-encoding",
  "hex",
@@ -527,7 +537,7 @@ dependencies = [
  "chrono",
  "confium-api",
  "confium-net",
- "confium-store",
+ "confium-store 0.3.0",
  "data-encoding",
  "hex",
  "hmac",
@@ -638,6 +648,7 @@ dependencies = [
  "confium-observability",
  "confium-pki",
  "confium-privacy",
+ "confium-store 0.5.8",
  "confium-tc",
  "confium-tc-cmp20",
  "confium-tc-core",
