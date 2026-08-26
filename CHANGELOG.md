@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.2] — 2026-08-26
+
+### Added
+
+- `Confium::Store::Keystore` — Ruby surface for the store layer and
+  the sign-with-handle contract: `.new(backend, options)`,
+  `#sign(key_id, algorithm, message)` returning binary signature
+  bytes, plus `Confium::Store.backends`. Local backends raise a
+  typed `Confium::Error` for `#sign`; remote-holding backends (cloud
+  KMS) come via source builds that opt into their cargo features
+  (confium-store 0.5.8). `Confium::Error` now also accepts the
+  positional details-Hash form every typed subclass already accepts,
+  so native-constructed base errors carry `details` too.
+
 ## [0.6.1] — 2026-08-25
 
 ### Changed
