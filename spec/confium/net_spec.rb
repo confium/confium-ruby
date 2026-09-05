@@ -1,11 +1,21 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'socket'
 
 RSpec.describe Confium::Net::SignerClient do
-  let(:port) { rand(1..20_000) }
+  # OS-assigned free port: a random low port can collide with real
+  # listeners on CI runners (sshd on 22 etc.), and the noise handshake
+  # blocks forever reading from a non-noise peer.
+  def free_port
+    server = TCPServer.new('127.0.0.1', 0)
+    port = server.addr[1]
+    server.close
+    port
+  end
 
   it 'connects to a noise-served coordinator and registers' do
+    port = free_port
     server = Confium::Net::CoordinatorServer.new("noise://127.0.0.1:#{port}")
     expect(server).to be_a(Confium::Net::CoordinatorServer)
 
@@ -19,11 +29,12 @@ RSpec.describe Confium::Net::SignerClient do
   end
 
   it 'also works over plain tcp' do
-    Confium::Net::CoordinatorServer.new("tcp://127.0.0.1:#{port + 1}")
+    port = free_port
     # The coordinator's registry TCP scheme is confium-net-tcp, linked
-    # transitively through the coordinator; a failed connect here means
-    # the scheme did not resolve.
-    client = described_class.new("tcp://127.0.0.1:#{port + 1}")
+    # into the extension; a failed connect here means the scheme did
+    # not resolve.
+    Confium::Net::CoordinatorServer.new("tcp://127.0.0.1:#{port}")
+    client = described_class.new("tcp://127.0.0.1:#{port}")
     expect { client.register('signer-tcp', 'quorum-tcp') }.not_to raise_error
   end
 
