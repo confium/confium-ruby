@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Confium::Net::SignerClient do
-  let(:port) { 1 + rand(20_000) }
+  let(:port) { rand(1..20_000) }
 
   it 'connects to a noise-served coordinator and registers' do
     server = Confium::Net::CoordinatorServer.new("noise://127.0.0.1:#{port}")
@@ -19,7 +19,7 @@ RSpec.describe Confium::Net::SignerClient do
   end
 
   it 'also works over plain tcp' do
-    server = Confium::Net::CoordinatorServer.new("tcp://127.0.0.1:#{port + 1}")
+    Confium::Net::CoordinatorServer.new("tcp://127.0.0.1:#{port + 1}")
     # The coordinator's registry TCP scheme is confium-net-tcp, linked
     # transitively through the coordinator; a failed connect here means
     # the scheme did not resolve.
