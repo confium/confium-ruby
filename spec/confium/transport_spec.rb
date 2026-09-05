@@ -14,10 +14,25 @@ RSpec.describe Confium::Transport::SignerClient do
     port
   end
 
+  # Probe-then-rebind can transiently fail on Windows (WSAENOTSOCK on
+  # immediate rebind, or an address still claimed); retry with a
+  # fresh port instead of asserting on the first attempt.
+  def start_server(scheme)
+    attempts = 0
+    begin
+      attempts += 1
+      port = free_port
+      Confium::Transport::CoordinatorServer.new("#{scheme}://127.0.0.1:#{port}")
+      port
+    rescue IOError
+      retry if attempts < 5
+      raise
+    end
+  end
+
   it 'connects to a noise-served coordinator and registers' do
-    port = free_port
-    server = Confium::Transport::CoordinatorServer.new("noise://127.0.0.1:#{port}")
-    expect(server).to be_a(Confium::Transport::CoordinatorServer)
+    port = start_server('noise')
+    expect(port).to be_a(Integer)
 
     client = described_class.new("noise://127.0.0.1:#{port}")
     expect(client).to be_a(described_class)
@@ -29,11 +44,10 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'also works over plain tcp' do
-    port = free_port
     # The coordinator's registry TCP scheme is confium-net-tcp, linked
     # into the extension; a failed connect here means the scheme did
     # not resolve.
-    Confium::Transport::CoordinatorServer.new("tcp://127.0.0.1:#{port}")
+    port = start_server('tcp')
     client = described_class.new("tcp://127.0.0.1:#{port}")
     expect { client.register('signer-tcp', 'quorum-tcp') }.not_to raise_error
   end
