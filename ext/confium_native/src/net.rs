@@ -1,4 +1,4 @@
-//! Confium::Net — transport-level coordinator clients.
+//! Confium::Transport — transport-level coordinator clients.
 //!
 //! Binds the registry-transport coordinator surface: a signer dials
 //! the coordinator over any URL scheme the native library links
@@ -25,10 +25,10 @@ fn io_error(e: std::io::Error, operation: &str) -> Error {
     )
 }
 
-/// Confium::Net::SignerClient — a coordinator connection over a
+/// Confium::Transport::SignerClient — a coordinator connection over a
 /// registry transport URL.
 #[derive(TypedData, DataTypeFunctions)]
-#[magnus(class = "Confium::Net::SignerClient", size)]
+#[magnus(class = "Confium::Transport::SignerClient", size)]
 pub struct SignerClient {
     inner: std::cell::RefCell<RustSignerClient>,
 }
@@ -82,11 +82,11 @@ impl SignerClient {
     }
 }
 
-/// Confium::Net::CoordinatorServer — serves coordinator sessions over
+/// Confium::Transport::CoordinatorServer — serves coordinator sessions over
 /// any linked transport scheme. Held in a Ruby object; the server
 /// thread runs until the process exits.
 #[derive(TypedData, DataTypeFunctions)]
-#[magnus(class = "Confium::Net::CoordinatorServer", size)]
+#[magnus(class = "Confium::Transport::CoordinatorServer", size)]
 pub struct CoordinatorServer {
     _bound: String,
 }
@@ -103,7 +103,7 @@ impl CoordinatorServer {
 }
 
 pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
-    let net = parent.define_module("Net")?;
+    let net = parent.define_module("Transport")?;
 
     let client = net.define_class("SignerClient", ruby.class_object())?;
     client.define_singleton_method("new", magnus::function!(SignerClient::initialize, 1))?;
