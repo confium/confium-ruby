@@ -175,7 +175,7 @@ end
 - `.armor(data, type)` / `.dearmor(data)` — RFC 9580 §6 ASCII armor with CRC-24 (pure Ruby)
 - `.verify_detached(message, signature, keys)` / `.verify(...)` — real signature verification when the extension is built with the `pgp` feature; `PGP_AVAILABLE` reports it
 
-=== `Confium::Net` — transport-level coordinator clients
+=== `Confium::Transport` — coordinator clients over any transport
 - `SignerClient.new(url)` — connect over any registry transport: `tcp://host:port` (local/trusted) or `noise://host:port?key=<hex>&pinned=<hex>` (Noise_XX encrypted, stable identity + peer pinning)
 - `#register(signer_id, quorum_id)` / `#create_session(quorum_id, scheme, message, threshold, num_parties)` → session id
 - `#submit_commitment(session_id, signer_id, bytes)` / `#submit_share(session_id, signer_id, bytes)`
