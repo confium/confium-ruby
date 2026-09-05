@@ -18,7 +18,7 @@ Add to your Gemfile:
 
 [source,ruby]
 ----
-gem "confium", "~> 0.6"
+gem "confium", "~> 0.7"
 ----
 
 Or install directly:
@@ -98,7 +98,7 @@ end
 # Ed25519 signature verifiable under the group public key
 ----
 
-== API surface (v0.6)
+== API surface (v0.7)
 
 === `Confium::Transparency`
 - `MerkleTree.new` / `#append(artifact_hash)` / `#root` / `#length` / `#empty?` / `#inclusion_proof(seq)`
@@ -174,6 +174,12 @@ end
 === `Confium::OpenPGP`
 - `.armor(data, type)` / `.dearmor(data)` — RFC 9580 §6 ASCII armor with CRC-24 (pure Ruby)
 - `.verify_detached(message, signature, keys)` / `.verify(...)` — real signature verification when the extension is built with the `pgp` feature; `PGP_AVAILABLE` reports it
+
+=== `Confium::Net` — transport-level coordinator clients
+- `SignerClient.new(url)` — connect over any registry transport: `tcp://host:port` (local/trusted) or `noise://host:port?key=<hex>&pinned=<hex>` (Noise_XX encrypted, stable identity + peer pinning)
+- `#register(signer_id, quorum_id)` / `#create_session(quorum_id, scheme, message, threshold, num_parties)` → session id
+- `#submit_commitment(session_id, signer_id, bytes)` / `#submit_share(session_id, signer_id, bytes)`
+- `CoordinatorServer.new(url)` — serve coordinator sessions over any linked scheme (test/in-process use)
 
 === `Confium::ERS` — evidence records
 - `EvidenceRecord.build_initial(...)` / `#renew(...)` / `#renewal_count` (RFC 4998 / RFC 6283 archival)

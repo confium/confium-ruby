@@ -25,6 +25,9 @@ build = "build.rs"
 pgp = ["rnp"]
 
 [dependencies]
+confium-coordinator = "0.7"
+confium-net-noise = "0.7"
+confium-net-tcp = "0.7"
 # rb-sys for Ruby C API access.
 rb-sys = { version = "0.9.124", features = ["global-allocator"] }
 
