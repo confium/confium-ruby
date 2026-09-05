@@ -1,27 +1,18 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'socket'
 
 RSpec.describe Confium::Transport::SignerClient do
-  # OS-assigned free port: a random low port can collide with real
-  # listeners on CI runners (sshd on 22 etc.), and the noise handshake
-  # blocks forever reading from a non-noise peer.
-  def free_port
-    server = TCPServer.new('127.0.0.1', 0)
-    port = server.addr[1]
-    server.close
-    port
-  end
-
-  # Probe-then-rebind can transiently fail on Windows (WSAENOTSOCK on
-  # immediate rebind, or an address still claimed); retry with a
-  # fresh port instead of asserting on the first attempt.
+  # Random ephemeral-range port with bind retry. NOT probe-then-rebind:
+  # Windows deterministically refuses to rebind a just-closed probe
+  # socket (std does not set SO_REUSEADDR there), and low random ports
+  # can collide with real CI listeners (sshd) whose non-noise response
+  # stalls the handshake until the 10s deadline.
   def start_server(scheme)
     attempts = 0
     begin
       attempts += 1
-      port = free_port
+      port = rand(49_152..64_999)
       Confium::Transport::CoordinatorServer.new("#{scheme}://127.0.0.1:#{port}")
       port
     rescue IOError
