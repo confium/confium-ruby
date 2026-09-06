@@ -25,6 +25,14 @@ static PROBED: AtomicBool = AtomicBool::new(false);
 unsafe extern "C" {
     fn WSAStartup(wVersionRequested: u16, lpWSAData: *mut WsaData) -> i32;
     fn socket(af: i32, ty: i32, protocol: i32) -> usize;
+    fn WSASocketW(
+        af: i32,
+        ty: i32,
+        protocol: i32,
+        lpProtocolInfo: *const u8,
+        g: i32,
+        dwFlags: u32,
+    ) -> usize;
     fn bind(s: usize, name: *const u8, namelen: i32) -> i32;
     fn closesocket(s: usize) -> i32;
     fn WSAGetLastError() -> i32;
@@ -66,6 +74,7 @@ pub fn probe() {
     eprintln!("confium-winsock: WSAStartup(2.2) rc={rc} ver={w_hi}.{w_lo} high={h_hi}.{h_lo}");
 
     probe_raw_winsock();
+    probe_wsa_socket_variants();
 
     match TcpListener::bind("127.0.0.1:0") {
         Ok(listener) => {
@@ -114,5 +123,47 @@ fn probe_raw_winsock() {
         eprintln!("confium-winsock: raw bind() OK");
     }
     unsafe { closesocket(handle) };
+}
+
+/// Probe (e): Rust std creates sockets with `WSASocketW` (not the
+/// plain `socket()` above). Round (d) showed raw `socket()`+`bind()`
+/// succeed while std's bind fails — so call `WSASocketW` exactly as
+/// std does, across its flag variants, and bind each result. Whichever
+/// variant reproduces the 10038 identifies the failing entry point.
+fn probe_wsa_socket_variants() {
+    const AF_INET: i32 = 2;
+    const SOCK_STREAM: i32 = 1;
+    const IPPROTO_TCP: i32 = 6;
+    const INVALID: usize = usize::MAX;
+    const WSA_FLAG_OVERLAPPED: u32 = 0x01;
+    const WSA_FLAG_NO_HANDLE_INHERIT: u32 = 0x80;
+
+    let variants: [(&str, u32); 3] = [
+        ("overlapped", WSA_FLAG_OVERLAPPED),
+        ("overlapped|no_handle_inherit", WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT),
+        ("flags=0", 0),
+    ];
+
+    for (label, flags) in variants {
+        let mut addr = [0u8; 16];
+        addr[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+        addr[4..8].copy_from_slice(&[127, 0, 0, 1]);
+
+        // SAFETY: plain winsock calls; the sockaddr outlives both.
+        let s = unsafe { WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, std::ptr::null(), 0, flags) };
+        if s == INVALID {
+            let err = unsafe { WSAGetLastError() };
+            eprintln!("confium-winsock: WSASocketW[{label}] FAILED wsagetlasterror={err}");
+            continue;
+        }
+        let rc = unsafe { bind(s, addr.as_ptr(), 16) };
+        if rc != 0 {
+            let err = unsafe { WSAGetLastError() };
+            eprintln!("confium-winsock: WSASocketW[{label}] handle={s:#x} bind rc={rc} wsagetlasterror={err}");
+        } else {
+            eprintln!("confium-winsock: WSASocketW[{label}] handle={s:#x} bind OK");
+        }
+        unsafe { closesocket(s) };
+    }
 }
 
