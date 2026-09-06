@@ -357,12 +357,12 @@ dependencies = [
 
 [[package]]
 name = "confium-coordinator"
-version = "0.7.0"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e229bb650899ba14c7b5193d225652361f9868dbee18b8af1e182c5ff10bede8"
+checksum = "ead314553bfc3ee1cdda8009844e7df977dace0bc2c98ca06c0400c29d36dfde"
 dependencies = [
  "chrono",
- "confium-net 0.7.0",
+ "confium-net 0.8.3",
  "getrandom 0.4.3",
  "hex",
  "hmac 0.13.0",
@@ -469,9 +469,9 @@ dependencies = [
 
 [[package]]
 name = "confium-net"
-version = "0.7.0"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47075a49351494423b1f95f5736393ef6a930b832038d5adf4a78dff692d4eda"
+checksum = "f5cf8cdc02d475f32ef4a5a4c326a53b6167c52fcf6197d306f48d64f798bcc2"
 dependencies = [
  "inventory",
  "snafu 0.9.2",
@@ -480,11 +480,11 @@ dependencies = [
 
 [[package]]
 name = "confium-net-noise"
-version = "0.7.0"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8ba76ce45e1cc3f70b785743cc23fb398a93b7f96f38085451587c34a96b065"
+checksum = "ac34468b001598b8d021d2f8eecd4a1563995c8537ccaf3106e12fd135e4a74e"
 dependencies = [
- "confium-net 0.7.0",
+ "confium-net 0.8.3",
  "inventory",
  "sha2 0.11.0",
  "snafu 0.9.2",
@@ -495,12 +495,13 @@ dependencies = [
 
 [[package]]
 name = "confium-net-tcp"
-version = "0.7.0"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a0cf9c33f3f0a7c7b0e631fd673c4353fc771b93c96ce26cbb77abd45e2a6fb"
+checksum = "1b80e3d692ed5328a72e754a0f73d81f6c8fde3714d05fc0be1953f657e05f76"
 dependencies = [
- "confium-net 0.7.0",
+ "confium-net 0.8.3",
  "inventory",
+ "snafu 0.9.2",
  "url",
 ]
 
@@ -794,7 +795,7 @@ dependencies = [
  "chrono",
  "confium-attributes",
  "confium-composite",
- "confium-coordinator 0.7.0",
+ "confium-coordinator 0.8.3",
  "confium-core",
  "confium-crypto-vss",
  "confium-crypto-zk",
