@@ -1,0 +1,23 @@
+[package]
+# Diagnostic crate for the Windows extension listener failure: the
+# Ruby extension's TcpListener bind fails on mingw (WSAENOTSOCK 10038
+# / bind refusal) while Ruby's own TCPServer binds fine in the same
+# process. This crate runs the SAME transport crates and the SAME
+# bind paths in a plain Rust process — no Ruby — so a green run here
+# next to a red in-Ruby bind isolates the fault to the embedding
+# environment. Run via CI ("Rust socket smoke") on all platforms.
+name = "socket-smoke"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+confium-net = "0.7"
+confium-net-tcp = "0.7"
+confium-net-noise = "0.7"
+
+# Standalone: not a member of the gem workspace — the gem ships the
+# root Cargo.toml but not this directory, and cargo errors on missing
+# members. Kept out of the packaged gem (see confium.gemspec).
+[workspace]

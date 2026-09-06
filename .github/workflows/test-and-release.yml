@@ -74,6 +74,19 @@ jobs:
       - name: Build native extension
         run: bundle exec rake compile
 
+      - name: Rust socket smoke (windows-gnu)
+        # Windows diagnostic for the extension listener bind failure
+        # (ledger): runs the same transport crates over the same bind
+        # paths in a plain Rust process. Green here + red in-Ruby
+        # isolates the fault to the Ruby embedding environment.
+        # Non-blocking until root-caused so releases are not gated on
+        # an open diagnostic.
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+          cargo test --manifest-path ext/socket-smoke/Cargo.toml -- --nocapture
+
       - name: Run specs
         run: bundle exec rspec
 
