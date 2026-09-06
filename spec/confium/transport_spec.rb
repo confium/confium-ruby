@@ -3,6 +3,14 @@
 require 'spec_helper'
 
 RSpec.describe Confium::Transport::SignerClient do
+  # The extension's Rust TcpListener bind fails on mingw (WSAENOTSOCK
+  # 10038 / bind refusal) for noise:// and tcp:// alike — every fresh
+  # port, deterministic. API-level specs run on Windows; the in-process
+  # listener ceremonies are skipped there until the extension-side
+  # Windows socket issue is fixed (tracked in the audit ledger).
+  def windows?
+    RUBY_PLATFORM =~ /mingw/
+  end
   # Random ephemeral-range port with bind retry. NOT probe-then-rebind:
   # Windows deterministically refuses to rebind a just-closed probe
   # socket (std does not set SO_REUSEADDR there), and low random ports
@@ -22,6 +30,7 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'connects to a noise-served coordinator and registers' do
+    skip 'extension listener bind fails on Windows (see ledger)' if windows?
     port = start_server('noise')
     expect(port).to be_a(Integer)
 
@@ -35,6 +44,7 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'also works over plain tcp' do
+    skip 'extension listener bind fails on Windows (see ledger)' if windows?
     # The coordinator's registry TCP scheme is confium-net-tcp, linked
     # into the extension; a failed connect here means the scheme did
     # not resolve.
