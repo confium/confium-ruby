@@ -19,6 +19,9 @@ mod tc_session;
 mod transparency;
 mod util;
 
+#[cfg(windows)]
+mod winsock;
+
 use magnus::{function, Error, Module, Ruby};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -39,6 +42,9 @@ fn core_version() -> &'static str {
 
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
+    #[cfg(windows)]
+    winsock::probe();
+
     let confium = ruby.define_module("Confium")?;
     let native = confium.define_module("Native")?;
     native.define_module_function("version", function!(native_version, 0))?;
