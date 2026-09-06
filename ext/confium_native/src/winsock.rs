@@ -24,6 +24,10 @@ static PROBED: AtomicBool = AtomicBool::new(false);
 
 unsafe extern "C" {
     fn WSAStartup(wVersionRequested: u16, lpWSAData: *mut WsaData) -> i32;
+    fn socket(af: i32, ty: i32, protocol: i32) -> usize;
+    fn bind(s: usize, name: *const u8, namelen: i32) -> i32;
+    fn closesocket(s: usize) -> i32;
+    fn WSAGetLastError() -> i32;
 }
 
 #[repr(C)]
@@ -55,7 +59,13 @@ pub fn probe() {
     // SAFETY: WSAData is a plain C struct; the pointer is valid for the
     // call duration. The startup reference is intentionally leaked.
     let rc = unsafe { WSAStartup(0x0202, &mut data) };
-    eprintln!("confium-winsock: WSAStartup(2.2) rc={rc}");
+    let w_hi = data.w_version >> 8;
+    let w_lo = data.w_version & 0xff;
+    let h_hi = data.w_high_version >> 8;
+    let h_lo = data.w_high_version & 0xff;
+    eprintln!("confium-winsock: WSAStartup(2.2) rc={rc} ver={w_hi}.{w_lo} high={h_hi}.{h_lo}");
+
+    probe_raw_winsock();
 
     match TcpListener::bind("127.0.0.1:0") {
         Ok(listener) => {
@@ -70,3 +80,39 @@ pub fn probe() {
         }
     }
 }
+
+/// Step-level raw winsock discrimination: create a socket via FFI,
+/// bind it via FFI, close it. If these succeed where the std bind
+/// fails, the fault is in the std windows-gnu socket path inside the
+/// Ruby process; if the FFI socket() itself fails, the process-level
+/// winsock state is poisoned (no library code of ours involved).
+fn probe_raw_winsock() {
+    const AF_INET: i32 = 2;
+    const SOCK_STREAM: i32 = 1;
+    const IPPROTO_TCP: i32 = 6;
+    const INVALID: usize = usize::MAX;
+
+    // sockaddr_in: family=AF_INET, port=0 (ephemeral), addr=127.0.0.1
+    let mut addr = [0u8; 16];
+    addr[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    addr[4..8].copy_from_slice(&[127, 0, 0, 1]);
+
+    // SAFETY: plain winsock calls; the sockaddr outlives both calls.
+    let handle = unsafe { socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) };
+    if handle == INVALID {
+        let err = unsafe { WSAGetLastError() };
+        eprintln!("confium-winsock: raw socket() FAILED wsagetlasterror={err}");
+        return;
+    }
+    eprintln!("confium-winsock: raw socket() handle={handle:#x}");
+
+    let rc = unsafe { bind(handle, addr.as_ptr(), 16) };
+    if rc != 0 {
+        let err = unsafe { WSAGetLastError() };
+        eprintln!("confium-winsock: raw bind() rc={rc} wsagetlasterror={err}");
+    } else {
+        eprintln!("confium-winsock: raw bind() OK");
+    }
+    unsafe { closesocket(handle) };
+}
+
