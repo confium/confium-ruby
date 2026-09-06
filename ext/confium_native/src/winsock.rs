@@ -34,6 +34,9 @@ unsafe extern "C" {
         dwFlags: u32,
     ) -> usize;
     fn bind(s: usize, name: *const u8, namelen: i32) -> i32;
+    fn listen(s: usize, backlog: i32) -> i32;
+    fn getsockname(s: usize, name: *mut u8, namelen: *mut i32) -> i32;
+    fn accept(s: usize, addr: *mut u8, addrlen: *mut i32) -> usize;
     fn closesocket(s: usize) -> i32;
     fn WSAGetLastError() -> i32;
 }
@@ -75,6 +78,7 @@ pub fn probe() {
 
     probe_raw_winsock();
     probe_wsa_socket_variants();
+    probe_address_resolution_split();
 
     match TcpListener::bind("127.0.0.1:0") {
         Ok(listener) => {
@@ -167,3 +171,76 @@ fn probe_wsa_socket_variants() {
     }
 }
 
+/// Probe (f): split std's bind path into its two halves. std's
+/// `TcpListener::bind("host:port")` resolves the string (GetAddrInfoW)
+/// before creating the socket; binding a pre-parsed `SocketAddr`
+/// skips resolution entirely. If the SocketAddr form works while the
+/// string form fails, the fault is std's address resolution inside
+/// the Ruby process, and the fix is for confium-net-tcp to parse
+/// hosts itself. Also exercised: a complete raw listener (bind +
+/// listen + getsockname) and a std CLIENT connect to it, to see
+/// whether any std net path works in-process.
+fn probe_address_resolution_split() {
+    use std::net::IpAddr;
+    use std::net::Ipv4Addr;
+    use std::net::SocketAddr;
+    use std::net::TcpStream;
+
+    // 1) std bind via pre-parsed SocketAddr (no getaddrinfo).
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+    match TcpListener::bind(addr) {
+        Ok(l) => eprintln!("confium-winsock: std bind[SocketAddr] OK ({})", l.local_addr().map(|a| a.to_string()).unwrap_or_default()),
+        Err(e) => eprintln!("confium-winsock: std bind[SocketAddr] FAILED: {e}"),
+    }
+
+    // 2) std bind via &str (exercises GetAddrInfoW).
+    match TcpListener::bind("127.0.0.1:0") {
+        Ok(l) => eprintln!("confium-winsock: std bind[str] OK ({})", l.local_addr().map(|a| a.to_string()).unwrap_or_default()),
+        Err(e) => eprintln!("confium-winsock: std bind[str] FAILED: {e}"),
+    }
+
+    // 3) Full raw listener + std client connect to it.
+    const AF_INET: i32 = 2;
+    const INVALID: usize = usize::MAX;
+    let mut saddr = [0u8; 16];
+    saddr[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    saddr[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    // SAFETY: plain winsock calls; buffers outlive the calls.
+    let s = unsafe { socket(AF_INET, 1, 6) };
+    if s == INVALID {
+        eprintln!("confium-winsock: probe-f socket FAILED {}", unsafe { WSAGetLastError() });
+        return;
+    }
+    let mut bound = saddr;
+    if unsafe { bind(s, bound.as_ptr(), 16) } != 0 {
+        eprintln!("confium-winsock: probe-f bind FAILED {}", unsafe { WSAGetLastError() });
+        unsafe { closesocket(s) };
+        return;
+    }
+    if unsafe { listen(s, 16) } != 0 {
+        eprintln!("confium-winsock: probe-f listen FAILED {}", unsafe { WSAGetLastError() });
+        unsafe { closesocket(s) };
+        return;
+    }
+    let mut got = [0u8; 16];
+    let mut gotlen: i32 = 16;
+    let mut port: u16 = 0;
+    if unsafe { getsockname(s, got.as_mut_ptr(), &mut gotlen) } == 0 {
+        port = u16::from_be_bytes([got[2], got[3]]);
+        eprintln!("confium-winsock: probe-f raw listener up on port {port}");
+    }
+    if port != 0 {
+        match TcpStream::connect(("127.0.0.1", port)) {
+            Ok(_) => eprintln!("confium-winsock: std client connect OK"),
+            Err(e) => eprintln!("confium-winsock: std client connect FAILED: {e}"),
+        }
+        // Drain the accepted connection so the raw socket closes clean.
+        let mut pa = [0u8; 16];
+        let mut palen: i32 = 16;
+        let acc = unsafe { accept(s, pa.as_mut_ptr(), &mut palen) };
+        if acc != INVALID {
+            unsafe { closesocket(acc) };
+        }
+    }
+    unsafe { closesocket(s) };
+}
