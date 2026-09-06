@@ -18,6 +18,16 @@ RSpec.describe Confium::Transport::SignerClient do
     RUBY_PLATFORM =~ /mingw/
   end
 
+  # Timeline bisect for the extension socket investigation: the same
+  # diagnostic sequence runs at ext init, at suite start, and right
+  # before each listener ceremony — the CI log then shows exactly
+  # when each std net operation degrades (probe round g).
+  def winsock_timeline(tag)
+    Confium::Native.winsock_probe(tag)
+  rescue StandardError => e
+    warn "confium-winsock[#{tag}]: probe raised #{e.class}: #{e.message}"
+  end
+
   def windows_listener_skip_reason
     return nil unless windows?
 
@@ -48,6 +58,7 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'connects to a noise-served coordinator and registers' do
+    winsock_timeline('pre-noise-ceremony') if windows?
     skip windows_listener_skip_reason if windows_listener_skip_reason
     port = start_server('noise')
     expect(port).to be_a(Integer)
@@ -62,6 +73,7 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'also works over plain tcp' do
+    winsock_timeline('pre-tcp-ceremony') if windows?
     skip windows_listener_skip_reason if windows_listener_skip_reason
     # The coordinator's registry TCP scheme is confium-net-tcp, linked
     # into the extension; a failed connect here means the scheme did
@@ -74,5 +86,17 @@ RSpec.describe Confium::Transport::SignerClient do
   it 'raises on an unresolvable scheme' do
     expect { described_class.new('nosuch://127.0.0.1:1') }
       .to raise_error(StandardError, /nosuch/i)
+  end
+end
+
+RSpec.configure do |config|
+  config.before(:suite) do
+    if RUBY_PLATFORM =~ /mingw/
+      begin
+        Confium::Native.winsock_probe('before-suite')
+      rescue StandardError => e
+        warn "confium-winsock[before-suite]: probe raised #{e.class}: #{e.message}"
+      end
+    end
   end
 end

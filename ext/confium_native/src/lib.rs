@@ -34,6 +34,19 @@ fn native_loaded() -> bool {
     true
 }
 
+/// `Confium::Native.winsock_probe(tag)` — run the winsock diagnostic
+/// sequence at an arbitrary point (Windows only; no-op elsewhere).
+/// Timeline bisect for the listener bind failure: call it at ext
+/// load, suite start, and just before a ceremony to see exactly when
+/// each std net operation degrades.
+fn winsock_probe_fn(tag: String) -> Result<(), Error> {
+    #[cfg(windows)]
+    winsock::probe_on_demand(&tag);
+    #[cfg(not(windows))]
+    let _ = tag;
+    Ok(())
+}
+
 fn core_version() -> &'static str {
     // Set by build.rs at compile time from Cargo.lock. Always matches the
     // confium-core crate version the extension was built against.
@@ -50,6 +63,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     native.define_module_function("version", function!(native_version, 0))?;
     native.define_module_function("loaded?", function!(native_loaded, 0))?;
     confium.define_module_function("core_version", function!(core_version, 0))?;
+    native.define_module_function("winsock_probe", function!(winsock_probe_fn, 1))?;
 
     transparency::init(ruby, confium)?;
     openpgp_verify::init(ruby, confium)?;
