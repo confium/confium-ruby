@@ -331,8 +331,42 @@ signature = client.aggregate(sid)
 service.stop
 ```
 
-Transport is plain TCP for loopback/private networks; the upstream
-noise-transport session protocol replaces it in a later release.
+Transport is plain TCP for loopback/private networks; for Noise-XX
+encrypted sessions use `Confium::Transport` below.
+
+## Confium::Transport — Noise-XX encrypted coordinator sessions
+
+`SignerClient` and `CoordinatorServer` over any registered transport
+scheme, addressed by URL:
+
+```ruby
+# Trusted network: plain TCP
+url = "tcp://127.0.0.1:7800"
+
+# Untrusted network: Noise_XX 25519_ChaChaPoly_BLAKE2s with a stable
+# local identity and the coordinator's fingerprint pinned
+url = "noise://signing.internal:7800?key=#{key_hex}&pinned=#{fp_hex}"
+
+server = Confium::Transport::CoordinatorServer.new(url)  # binds at construction
+client = Confium::Transport::SignerClient.new(url)
+
+client.register("signer-1", quorum_id)
+sid = client.create_session(quorum_id, "CMP20-ECDSA-P256", message, 3, 5)
+client.submit_commitment(sid, "signer-1", commitment_bytes)
+signature = client.submit_share(sid, "signer-1", share_bytes)  # may aggregate
+```
+
+- `SignerClient.new(url)` connects and completes the Noise handshake at
+  construction; `noise://` URLs take `key=<hex>` (local static private
+  key; ephemeral and trust-on-first-use when omitted) and `pinned=<hex>`
+  (SHA-256 fingerprint of the expected peer static key — the handshake
+  aborts on mismatch)
+- one `submit` observed as one encrypted frame; a 10-second handshake
+  deadline makes a non-Noise peer fail fast instead of hanging
+- `submit_share` returns the aggregated signature once the threshold is
+  met, else `nil`
+- `CoordinatorServer` is for tests and in-process quorums; production
+  deployments front the coordinator through `confium-daemon`
 
 ## Confium::Audit::OtlpSink — OpenTelemetry export
 
