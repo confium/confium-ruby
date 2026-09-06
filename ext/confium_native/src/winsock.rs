@@ -35,6 +35,7 @@ unsafe extern "C" {
     ) -> usize;
     fn bind(s: usize, name: *const u8, namelen: i32) -> i32;
     fn connect(s: usize, name: *const u8, namelen: i32) -> i32;
+    fn send(s: usize, buf: *const u8, len: i32, flags: i32) -> i32;
     fn listen(s: usize, backlog: i32) -> i32;
     fn getsockname(s: usize, name: *mut u8, namelen: *mut i32) -> i32;
     fn accept(s: usize, addr: *mut u8, addrlen: *mut i32) -> usize;
@@ -257,6 +258,7 @@ fn probe_address_resolution_split() {
 /// code can call it unconditionally.
 #[cfg(windows)]
 pub fn probe_on_demand(tag: &str) {
+    use std::io::Write;
     use std::net::IpAddr;
     use std::net::Ipv4Addr;
     use std::net::SocketAddr;
@@ -302,6 +304,58 @@ pub fn probe_on_demand(tag: &str) {
         Err(e) => eprintln!("confium-winsock[{tag}]: std connect[SocketAddr] FAILED: {e}"),
     }
     drain_accepted(ls);
+
+    // Probe (h): the ceremonies showed std connect OK followed by
+    // transport send failing 10038. Exercise the write paths next to
+    // the reads: a std blocking write, and a raw FFI send.
+    if let Some((ls2, port2)) = raw_listener() {
+        match TcpStream::connect(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port2)) {
+            Ok(mut s) => match s.write_all(b"confium-probe") {
+                Ok(()) => eprintln!("confium-winsock[{tag}]: std write_all OK"),
+                Err(e) => eprintln!("confium-winsock[{tag}]: std write_all FAILED: {e}"),
+            },
+            Err(e) => eprintln!("confium-winsock[{tag}]: send-probe connect FAILED: {e}"),
+        }
+        drain_accepted(ls2);
+    }
+    if let Some((_ls3, port3)) = raw_listener() {
+        match ffi_send_probe(port3) {
+            Ok(()) => eprintln!("confium-winsock[{tag}]: FFI send OK"),
+            Err(e) => eprintln!("confium-winsock[{tag}]: FFI send FAILED: {e}"),
+        }
+        drain_accepted(_ls3);
+    }
+}
+
+/// FFI socket + connect + send, step by step.
+#[cfg(windows)]
+fn ffi_send_probe(port: u16) -> Result<(), String> {
+    const AF_INET: i32 = 2;
+    const INVALID: usize = usize::MAX;
+    // SAFETY: plain winsock calls.
+    let s = unsafe { socket(AF_INET, 1, 6) };
+    if s == INVALID {
+        return Err(format!("create {}", unsafe { WSAGetLastError() }));
+    }
+    let mut peer = [0u8; 16];
+    peer[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    peer[2..4].copy_from_slice(&port.to_be_bytes());
+    peer[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    let rc = unsafe { connect(s, peer.as_ptr(), 16) };
+    if rc != 0 {
+        let err = unsafe { WSAGetLastError() };
+        unsafe { closesocket(s) };
+        return Err(format!("connect wsagetlasterror={err}"));
+    }
+    let payload = b"confium-probe";
+    let sent = unsafe { send(s, payload.as_ptr(), payload.len() as i32, 0) };
+    let err = if sent < 0 { unsafe { WSAGetLastError() } } else { 0 };
+    unsafe { closesocket(s) };
+    if sent < 0 {
+        Err(format!("send wsagetlasterror={err}"))
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(windows)]
