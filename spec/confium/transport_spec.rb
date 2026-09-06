@@ -8,8 +8,25 @@ RSpec.describe Confium::Transport::SignerClient do
   # port, deterministic. API-level specs run on Windows; the in-process
   # listener ceremonies are skipped there until the extension-side
   # Windows socket issue is fixed (tracked in the audit ledger).
+  #
+  # When skipping, attempt one real bind first and embed the OS error
+  # in the skip reason — every Windows CI log then carries the exact
+  # failure for the ledger investigation. ext/socket-smoke runs the
+  # same crates outside Ruby on the same runner: if that is green
+  # while this fails, the fault is the Ruby embedding environment.
   def windows?
     RUBY_PLATFORM =~ /mingw/
+  end
+
+  def windows_listener_skip_reason
+    return nil unless windows?
+
+    begin
+      Confium::Transport::CoordinatorServer.new("tcp://127.0.0.1:#{rand(49_152..64_999)}")
+      nil # bind works after all — run the spec, do not skip
+    rescue StandardError => e
+      "Windows listener bind fails (see ledger): #{e.class}: #{e.message}"
+    end
   end
 
   # Random ephemeral-range port with bind retry. NOT probe-then-rebind:
@@ -31,7 +48,7 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'connects to a noise-served coordinator and registers' do
-    skip 'extension listener bind fails on Windows (see ledger)' if windows?
+    skip windows_listener_skip_reason if windows_listener_skip_reason
     port = start_server('noise')
     expect(port).to be_a(Integer)
 
@@ -45,7 +62,7 @@ RSpec.describe Confium::Transport::SignerClient do
   end
 
   it 'also works over plain tcp' do
-    skip 'extension listener bind fails on Windows (see ledger)' if windows?
+    skip windows_listener_skip_reason if windows_listener_skip_reason
     # The coordinator's registry TCP scheme is confium-net-tcp, linked
     # into the extension; a failed connect here means the scheme did
     # not resolve.

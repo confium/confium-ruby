@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.7.0] — UNRELEASED (code on main; release on the owner's tag)
+
+### Added
+
+- `Confium::Transport::SignerClient` / `CoordinatorServer` —
+  coordinator sessions over any registry transport the extension
+  links, addressed by URL: `tcp://host:port` for local/trusted
+  networks, `noise://host:port` for Noise_XX
+  (`Noise_XX_25519_ChaChaPoly_BLAKE2s`) encrypted sessions.
+  `noise://` URLs take `key=<hex>` (local static private key;
+  ephemeral and trust-on-first-use when omitted) and `pinned=<hex>`
+  (SHA-256 fingerprint of the expected peer static key — the
+  handshake aborts on mismatch). The handshake carries a 10-second
+  deadline so a non-Noise peer fails fast instead of hanging.
+  `SignerClient` exposes `#register`, `#create_session`,
+  `#submit_commitment`, `#submit_share` (returns the aggregated
+  signature once the threshold is met, else nil);
+  `CoordinatorServer.new(url)` serves any linked scheme for tests
+  and single-process deployments.
+
+### Changed
+
+- **BREAKING**: `Confium::Net` is `Confium::Transport`. Defining
+  `Confium::Net` shadowed Ruby stdlib `Net` for every constant
+  lookup under the `Confium` namespace — `Confium::Audit::OtlpSink`'s
+  `Net::HTTP` resolved to `Confium::Net::HTTP` and raised
+  `NameError`. No prior release shipped the `Net` names.
+
+## [0.6.3] — 2026-08-26
+
+### Added
+
+- `Confium::TC::Session` — per-party threshold protocol sessions
+  over confium-tc-core 0.4: each signer process runs its own
+  session (`"FROST-ed25519-dkg"` for distributed key generation,
+  `"FROST-ed25519"` for signing with the DKG share and message) and
+  exchanges only `round_step` messages — the share never leaves the
+  process. `#round_step(incoming)` returns
+  `{ "outgoing" => [...], "complete" => bool }`; the completed DKG
+  session's `#result` is the party's share blob, the signing
+  session's `#result` an RFC 8032 Ed25519 signature verifiable under
+  the group public key.
+
 ## [0.6.2] — 2026-08-26
 
 ### Added

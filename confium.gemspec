@@ -40,6 +40,8 @@ Gem::Specification.new do |spec|
   ]
   spec.files.reject! { |f| File.directory?(f) }
   spec.files.reject! { |f| f =~ /\.(dll|so|dylib|lib|bundle)\Z/ }
+  # Windows socket diagnostic crate — development-only, never shipped.
+  spec.files.reject! { |f| f.start_with?('ext/socket-smoke/') }
   spec.require_paths = ['lib']
 
   spec.required_ruby_version = '>= 3.1.0'
