@@ -36,6 +36,7 @@ unsafe extern "C" {
     fn bind(s: usize, name: *const u8, namelen: i32) -> i32;
     fn connect(s: usize, name: *const u8, namelen: i32) -> i32;
     fn send(s: usize, buf: *const u8, len: i32, flags: i32) -> i32;
+    fn setsockopt(s: usize, level: i32, name: i32, value: *const u8, len: i32) -> i32;
     fn listen(s: usize, backlog: i32) -> i32;
     fn getsockname(s: usize, name: *mut u8, namelen: *mut i32) -> i32;
     fn accept(s: usize, addr: *mut u8, addrlen: *mut i32) -> usize;
@@ -324,6 +325,82 @@ pub fn probe_on_demand(tag: &str) {
             Err(e) => eprintln!("confium-winsock[{tag}]: FFI send FAILED: {e}"),
         }
         drain_accepted(_ls3);
+    }
+
+    // Probe (i): every FAILING path (noise connect, coordinator
+    // send/recv) calls set_read_timeout; no passing path does, and
+    // none of the probes above ever set a timeout. Test std
+    // set_read_timeout and the raw FFI setsockopt(SO_RCVTIMEO) next
+    // to each other on a connected socket.
+    if let Some((ls4, port4)) = raw_listener() {
+        match TcpStream::connect(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port4)) {
+            Ok(mut s) => {
+                match s.set_read_timeout(Some(std::time::Duration::from_secs(5))) {
+                    Ok(()) => eprintln!("confium-winsock[{tag}]: std set_read_timeout OK"),
+                    Err(e) => eprintln!("confium-winsock[{tag}]: std set_read_timeout FAILED: {e}"),
+                }
+                match s.write_all(b"probe-i") {
+                    Ok(()) => eprintln!("confium-winsock[{tag}]: post-timeout write OK"),
+                    Err(e) => eprintln!("confium-winsock[{tag}]: post-timeout write FAILED: {e}"),
+                }
+                let mut one = [0u8; 1];
+                use std::io::Read;
+                match s.read(&mut one) {
+                    Ok(_) => eprintln!("confium-winsock[{tag}]: post-timeout read OK"),
+                    Err(e) => eprintln!("confium-winsock[{tag}]: post-timeout read FAILED: {e}"),
+                }
+            }
+            Err(e) => eprintln!("confium-winsock[{tag}]: probe-i connect FAILED: {e}"),
+        }
+        drain_accepted(ls4);
+    }
+    if let Some((ls5, port5)) = raw_listener() {
+        match ffi_rcvtimeo_probe(port5) {
+            Ok(()) => eprintln!("confium-winsock[{tag}]: FFI setsockopt[SO_RCVTIMEO] OK"),
+            Err(e) => eprintln!("confium-winsock[{tag}]: FFI setsockopt[SO_RCVTIMEO] FAILED: {e}"),
+        }
+        drain_accepted(ls5);
+    }
+}
+
+/// FFI socket + connect + setsockopt(SOL_SOCKET, SO_RCVTIMEO, ms) +
+/// send + (short) recv — the exact call sequence the noise transport
+/// and coordinator client use, via raw winsock.
+#[cfg(windows)]
+fn ffi_rcvtimeo_probe(port: u16) -> Result<(), String> {
+    const AF_INET: i32 = 2;
+    const SOL_SOCKET: i32 = 0xffff;
+    const SO_RCVTIMEO: i32 = 0x1006;
+    const INVALID: usize = usize::MAX;
+    // SAFETY: plain winsock calls.
+    let s = unsafe { socket(AF_INET, 1, 6) };
+    if s == INVALID {
+        return Err(format!("create {}", unsafe { WSAGetLastError() }));
+    }
+    let mut peer = [0u8; 16];
+    peer[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    peer[2..4].copy_from_slice(&port.to_be_bytes());
+    peer[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    let rc = unsafe { connect(s, peer.as_ptr(), 16) };
+    if rc != 0 {
+        let err = unsafe { WSAGetLastError() };
+        unsafe { closesocket(s) };
+        return Err(format!("connect wsagetlasterror={err}"));
+    }
+    let ms: u32 = 5000;
+    let rc = unsafe { setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &ms as *const u32 as *const u8, 4) };
+    if rc != 0 {
+        let err = unsafe { WSAGetLastError() };
+        unsafe { closesocket(s) };
+        return Err(format!("setsockopt wsagetlasterror={err}"));
+    }
+    let payload = b"probe-i";
+    let sent = unsafe { send(s, payload.as_ptr(), payload.len() as i32, 0) };
+    unsafe { closesocket(s) };
+    if sent < 0 {
+        Err(format!("send wsagetlasterror={}", unsafe { WSAGetLastError() }))
+    } else {
+        Ok(())
     }
 }
 
