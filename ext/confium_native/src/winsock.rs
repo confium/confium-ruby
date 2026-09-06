@@ -34,6 +34,7 @@ unsafe extern "C" {
         dwFlags: u32,
     ) -> usize;
     fn bind(s: usize, name: *const u8, namelen: i32) -> i32;
+    fn connect(s: usize, name: *const u8, namelen: i32) -> i32;
     fn listen(s: usize, backlog: i32) -> i32;
     fn getsockname(s: usize, name: *mut u8, namelen: *mut i32) -> i32;
     fn accept(s: usize, addr: *mut u8, addrlen: *mut i32) -> usize;
@@ -211,8 +212,7 @@ fn probe_address_resolution_split() {
         eprintln!("confium-winsock: probe-f socket FAILED {}", unsafe { WSAGetLastError() });
         return;
     }
-    let mut bound = saddr;
-    if unsafe { bind(s, bound.as_ptr(), 16) } != 0 {
+    if unsafe { bind(s, saddr.as_ptr(), 16) } != 0 {
         eprintln!("confium-winsock: probe-f bind FAILED {}", unsafe { WSAGetLastError() });
         unsafe { closesocket(s) };
         return;
@@ -244,3 +244,141 @@ fn probe_address_resolution_split() {
     }
     unsafe { closesocket(s) };
 }
+
+/// Probe (g): the timeline bisect. Exposed to Ruby as
+/// `Confium::Native.winsock_probe(tag)` so the spec harness can run
+/// the full diagnostic sequence at chosen points (suite start, right
+/// before a ceremony) and the CI log shows exactly WHEN each std net
+/// operation degrades. Adds the comparator probe (f) lacked: a raw
+/// FFI connect against a live listener, step by step, next to the
+/// std connect — plus a UDP bind for type coverage.
+///
+/// Non-Windows builds get a no-op with the same signature so spec
+/// code can call it unconditionally.
+#[cfg(windows)]
+pub fn probe_on_demand(tag: &str) {
+    use std::net::IpAddr;
+    use std::net::Ipv4Addr;
+    use std::net::SocketAddr;
+    use std::net::TcpStream;
+    use std::net::UdpSocket;
+
+    let log = |what: &str, r: Result<String, String>| match r {
+        Ok(s) => eprintln!("confium-winsock[{tag}]: {what} OK ({s})"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: {what} FAILED: {e}"),
+    };
+
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+    log("std bind[SocketAddr]", TcpListener::bind(addr).and_then(|l| l.local_addr().map(|a| a.to_string())).map_err(|e| e.to_string()));
+    log("std bind[str]", TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr().map(|a| a.to_string())).map_err(|e| e.to_string()));
+    log("std udp bind", UdpSocket::bind("127.0.0.1:0").and_then(|s| s.local_addr().map(|a| a.to_string())).map_err(|e| e.to_string()));
+
+    // Raw listener for the connect comparisons.
+    let listener = raw_listener();
+    let Some((ls, port)) = listener else {
+        eprintln!("confium-winsock[{tag}]: raw listener setup FAILED");
+        return;
+    };
+
+    // FFI connect with a plain socket().
+    let c1 = ffi_connect(false, port);
+    match c1 {
+        Ok(()) => eprintln!("confium-winsock[{tag}]: FFI connect[socket()] OK"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: FFI connect[socket()] FAILED: {e}"),
+    }
+    // FFI connect with WSASocketW (overlapped), as std does.
+    match ffi_connect(true, port) {
+        Ok(()) => eprintln!("confium-winsock[{tag}]: FFI connect[WSASocketW] OK"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: FFI connect[WSASocketW] FAILED: {e}"),
+    }
+    // std connect, tuple form (resolution + socket + connect).
+    match TcpStream::connect(("127.0.0.1", port)) {
+        Ok(_) => eprintln!("confium-winsock[{tag}]: std connect[tuple] OK"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: std connect[tuple] FAILED: {e}"),
+    }
+    // std connect, pre-parsed SocketAddr (no resolution).
+    match TcpStream::connect(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)) {
+        Ok(_) => eprintln!("confium-winsock[{tag}]: std connect[SocketAddr] OK"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: std connect[SocketAddr] FAILED: {e}"),
+    }
+    drain_accepted(ls);
+}
+
+#[cfg(windows)]
+fn raw_listener() -> Option<(usize, u16)> {
+    const AF_INET: i32 = 2;
+    const INVALID: usize = usize::MAX;
+    let mut saddr = [0u8; 16];
+    saddr[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    saddr[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    // SAFETY: plain winsock calls; buffers outlive them.
+    let s = unsafe { socket(AF_INET, 1, 6) };
+    if s == INVALID {
+        eprintln!("confium-winsock: raw_listener socket FAILED {}", unsafe { WSAGetLastError() });
+        return None;
+    }
+    if unsafe { bind(s, saddr.as_ptr(), 16) } != 0 {
+        eprintln!("confium-winsock: raw_listener bind FAILED {}", unsafe { WSAGetLastError() });
+        unsafe { closesocket(s) };
+        return None;
+    }
+    if unsafe { listen(s, 16) } != 0 {
+        eprintln!("confium-winsock: raw_listener listen FAILED {}", unsafe { WSAGetLastError() });
+        unsafe { closesocket(s) };
+        return None;
+    }
+    let mut got = [0u8; 16];
+    let mut gotlen: i32 = 16;
+    if unsafe { getsockname(s, got.as_mut_ptr(), &mut gotlen) } != 0 {
+        eprintln!("confium-winsock: raw_listener getsockname FAILED {}", unsafe { WSAGetLastError() });
+        unsafe { closesocket(s) };
+        return None;
+    }
+    let port = u16::from_be_bytes([got[2], got[3]]);
+    Some((s, port))
+}
+
+#[cfg(windows)]
+fn ffi_connect(wsa: bool, port: u16) -> Result<(), String> {
+    const AF_INET: i32 = 2;
+    const INVALID: usize = usize::MAX;
+    // SAFETY: plain winsock calls.
+    let s = if wsa {
+        unsafe { WSASocketW(AF_INET, 1, 6, std::ptr::null(), 0, 0x01) }
+    } else {
+        unsafe { socket(AF_INET, 1, 6) }
+    };
+    if s == INVALID {
+        return Err(format!("create {}", unsafe { WSAGetLastError() }));
+    }
+    let mut peer = [0u8; 16];
+    peer[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    peer[2..4].copy_from_slice(&port.to_be_bytes());
+    peer[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    let rc = unsafe { connect(s, peer.as_ptr(), 16) };
+    let err = if rc != 0 { unsafe { WSAGetLastError() } } else { 0 };
+    unsafe { closesocket(s) };
+    if rc != 0 {
+        Err(format!("connect wsagetlasterror={err}"))
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+fn drain_accepted(listener: usize) {
+    const INVALID: usize = usize::MAX;
+    let mut pa = [0u8; 16];
+    let mut palen: i32 = 16;
+    // SAFETY: plain winsock calls.
+    let acc = unsafe { accept(listener, pa.as_mut_ptr(), &mut palen) };
+    if acc != INVALID {
+        unsafe { closesocket(acc) };
+    }
+    unsafe { closesocket(listener) };
+}
+
+/// No-op on non-Windows targets (the Ruby method exists everywhere so
+/// spec code need not branch).
+#[cfg(not(windows))]
+pub fn probe_on_demand(_tag: &str) {}
