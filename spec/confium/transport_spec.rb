@@ -11,6 +11,7 @@ RSpec.describe Confium::Transport::SignerClient do
   def windows?
     RUBY_PLATFORM =~ /mingw/
   end
+
   # Random ephemeral-range port with bind retry. NOT probe-then-rebind:
   # Windows deterministically refuses to rebind a just-closed probe
   # socket (std does not set SO_REUSEADDR there), and low random ports
