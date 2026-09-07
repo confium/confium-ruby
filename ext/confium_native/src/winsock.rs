@@ -444,6 +444,113 @@ pub fn probe_on_demand(tag: &str) {
         }
         let _ = h.join();
     }
+
+    // Probe (l): the ONE cell never exercised — a read WHILE the
+    // socket is nonblocking with NO data pending. That is exactly the
+    // first iteration of the 0.8.5 polling deadline loops, and every
+    // other cell in the matrix works. Normally such a read returns
+    // WouldBlock (WSAEWOULDBLOCK 10035); if it returns WSAENOTSOCK
+    // (10038) in-process, every remaining failure is explained: the
+    // poll loops pass the error through (WouldBlock-only filter).
+    // Server here ACCEPTS and stays silent, so no data is ever ready.
+    if let Some((ls, port)) = raw_listener() {
+        let silent = std::thread::spawn(move || {
+            let mut pa = [0u8; 16];
+            let mut palen: i32 = 16;
+            // SAFETY: plain winsock accept.
+            let _acc = unsafe { accept(ls, pa.as_mut_ptr(), &mut palen) };
+            std::thread::sleep(std::time::Duration::from_millis(1200));
+            // SAFETY: cleanup.
+            unsafe { closesocket(ls) };
+        });
+        match TcpStream::connect(("127.0.0.1", port)) {
+            Ok(mut s) => {
+                let _ = s.set_nonblocking(true);
+                use std::io::Read;
+                let mut b = [0u8; 1];
+                match s.read(&mut b) {
+                    Ok(n) => eprintln!("confium-winsock[{tag}]: nonblocking idle read returned Ok({n})?!"),
+                    Err(e) => eprintln!(
+                        "confium-winsock[{tag}]: nonblocking idle read kind={:?} raw={:?} ({e})",
+                        e.kind(),
+                        e.raw_os_error()
+                    ),
+                }
+                let _ = s.set_nonblocking(false);
+            }
+            Err(e) => eprintln!("confium-winsock[{tag}]: probe-l connect FAILED: {e}"),
+        }
+        let _ = silent.join();
+    }
+    // Same cell via raw FFI: socket() + FIONBIO + recv, silent peer.
+    if let Some((ls2, port2)) = raw_listener() {
+        let silent = std::thread::spawn(move || {
+            let mut pa = [0u8; 16];
+            let mut palen: i32 = 16;
+            // SAFETY: plain winsock accept.
+            let acc = unsafe { accept(ls2, pa.as_mut_ptr(), &mut palen) };
+            if acc != usize::MAX {
+                std::thread::sleep(std::time::Duration::from_millis(1200));
+                // SAFETY: cleanup.
+                unsafe { closesocket(acc) };
+            }
+            // SAFETY: cleanup.
+            unsafe { closesocket(ls2) };
+        });
+        match ffi_nonblocking_idle_recv(port2) {
+            Ok(code) => eprintln!("confium-winsock[{tag}]: FFI nonblocking idle recv rc={code} (0 pending, expect -1/10035)"),
+            Err(e) => eprintln!("confium-winsock[{tag}]: FFI nonblocking idle recv FAILED: {e}"),
+        }
+        let _ = silent.join();
+    }
+}
+
+/// FFI socket + connect + ioctlsocket(FIONBIO,1) + one recv against a
+/// silent peer. Returns the recv return code (negative means
+/// WSAGetLastError carries the reason).
+#[cfg(windows)]
+fn ffi_nonblocking_idle_recv(port: u16) -> Result<i32, String> {
+    const AF_INET: i32 = 2;
+    const INVALID: usize = usize::MAX;
+    const FIONBIO: i32 = -2147195266; // 0x8004667E as i32
+    // SAFETY: plain winsock calls below.
+    let s = unsafe { socket(AF_INET, 1, 6) };
+    if s == INVALID {
+        return Err(format!("create {}", unsafe { WSAGetLastError() }));
+    }
+    let mut peer = [0u8; 16];
+    peer[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    peer[2..4].copy_from_slice(&port.to_be_bytes());
+    peer[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    if unsafe { connect(s, peer.as_ptr(), 16) } != 0 {
+        let err = unsafe { WSAGetLastError() };
+        unsafe { closesocket(s) };
+        return Err(format!("connect wsagetlasterror={err}"));
+    }
+    let on: u32 = 1;
+    let rc = unsafe {
+        #[link(name = "ws2_32")]
+        unsafe extern "C" {
+            fn ioctlsocket(s: usize, cmd: i32, argp: *mut u32) -> i32;
+        }
+        ioctlsocket(s, FIONBIO, &on as *const u32 as *mut u32)
+    };
+    if rc != 0 {
+        let err = unsafe { WSAGetLastError() };
+        unsafe { closesocket(s) };
+        return Err(format!("ioctlsocket wsagetlasterror={err}"));
+    }
+    // Give the silent peer a moment so no data is ever pending.
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    let mut b = [0u8; 1];
+    let got = unsafe { recv(s, b.as_mut_ptr(), 1, 0) };
+    let err = if got < 0 { unsafe { WSAGetLastError() } } else { 0 };
+    unsafe { closesocket(s) };
+    if got < 0 {
+        Err(format!("recv rc={got} wsagetlasterror={err}"))
+    } else {
+        Ok(got)
+    }
 }
 
 fn ffi_rcvtimeo_probe(port: u16) -> Result<(), String> {
