@@ -392,6 +392,58 @@ pub fn probe_on_demand(tag: &str) {
     if let Some(h) = echo_j2 {
         let _ = h.join();
     }
+
+    // Probe (k): every FAILED std read so far had a socket-state call
+    // before it (set_read_timeout or set_nonblocking); every WORKING
+    // read was raw FFI on a socket()-created socket. Test the last
+    // untried combination: a std read with ZERO options — plain
+    // blocking std connect + read against the push server — plus the
+    // same after set_nodelay only, and after set_nonblocking only.
+    if let Some(h) = push_listener() {
+        match TcpStream::connect(("127.0.0.1", PUSH_PORT.with(|p| p.get()))) {
+            Ok(mut s) => {
+                use std::io::Read;
+                let mut b = [0u8; 1];
+                match s.read(&mut b) {
+                    Ok(_) => eprintln!("confium-winsock[{tag}]: std read[no options] OK"),
+                    Err(e) => eprintln!("confium-winsock[{tag}]: std read[no options] FAILED: {e}"),
+                }
+            }
+            Err(e) => eprintln!("confium-winsock[{tag}]: probe-k connect FAILED: {e}"),
+        }
+        let _ = h.join();
+    }
+    if let Some(h) = push_listener() {
+        match TcpStream::connect(("127.0.0.1", PUSH_PORT.with(|p| p.get()))) {
+            Ok(mut s) => {
+                let _ = s.set_nodelay(true);
+                use std::io::Read;
+                let mut b = [0u8; 1];
+                match s.read(&mut b) {
+                    Ok(_) => eprintln!("confium-winsock[{tag}]: std read[after nodelay] OK"),
+                    Err(e) => eprintln!("confium-winsock[{tag}]: std read[after nodelay] FAILED: {e}"),
+                }
+            }
+            Err(e) => eprintln!("confium-winsock[{tag}]: probe-k connect FAILED: {e}"),
+        }
+        let _ = h.join();
+    }
+    if let Some(h) = push_listener() {
+        match TcpStream::connect(("127.0.0.1", PUSH_PORT.with(|p| p.get()))) {
+            Ok(mut s) => {
+                let _ = s.set_nonblocking(true);
+                let _ = s.set_nonblocking(false);
+                use std::io::Read;
+                let mut b = [0u8; 1];
+                match s.read(&mut b) {
+                    Ok(_) => eprintln!("confium-winsock[{tag}]: std read[after nonblocking toggle] OK"),
+                    Err(e) => eprintln!("confium-winsock[{tag}]: std read[after nonblocking toggle] FAILED: {e}"),
+                }
+            }
+            Err(e) => eprintln!("confium-winsock[{tag}]: probe-k connect FAILED: {e}"),
+        }
+        let _ = h.join();
+    }
 }
 
 fn ffi_rcvtimeo_probe(port: u16) -> Result<(), String> {
