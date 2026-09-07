@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0] — UNRELEASED (code on main; release on the owner's tag)
+## [0.7.0] — 2026-09-07
 
 ### Added
 
