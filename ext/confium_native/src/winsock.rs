@@ -22,6 +22,11 @@ use std::sync::atomic::Ordering;
 
 static PROBED: AtomicBool = AtomicBool::new(false);
 
+unsafe extern "system" {
+    fn GetModuleHandleA(name: *const u8) -> *mut core::ffi::c_void;
+    fn GetProcAddress(module: *mut core::ffi::c_void, name: *const u8) -> *mut core::ffi::c_void;
+}
+
 unsafe extern "C" {
     fn WSAStartup(wVersionRequested: u16, lpWSAData: *mut WsaData) -> i32;
     fn socket(af: i32, ty: i32, protocol: i32) -> usize;
@@ -37,6 +42,7 @@ unsafe extern "C" {
     fn connect(s: usize, name: *const u8, namelen: i32) -> i32;
     fn send(s: usize, buf: *const u8, len: i32, flags: i32) -> i32;
     fn setsockopt(s: usize, level: i32, name: i32, value: *const u8, len: i32) -> i32;
+    fn recv(s: usize, buf: *mut u8, len: i32, flags: i32) -> i32;
     fn listen(s: usize, backlog: i32) -> i32;
     fn getsockname(s: usize, name: *mut u8, namelen: *mut i32) -> i32;
     fn accept(s: usize, addr: *mut u8, addrlen: *mut i32) -> usize;
@@ -361,12 +367,33 @@ pub fn probe_on_demand(tag: &str) {
         }
         drain_accepted(ls5);
     }
+
+    // Probe (j): 0.8.5 moved deadlines to non-blocking polling, and the
+    // tcp ceremony now gets PAST the send (the fix worked for writes)
+    // but fails on recv — reads appear broken in-process regardless of
+    // socket mode. Hypothesis: the statically-linked `recv` import
+    // binds to an exported wrapper in the Ruby DLL instead of ws2_32.
+    // Compare: recv through GetProcAddress("ws2_32.dll", "recv") vs
+    // the statically-bound recv, against a send-only server so only
+    // the client's recv is under test.
+    let echo_j = push_listener();
+    match ffi_recv_probe(false) {
+        Ok(()) => eprintln!("confium-winsock[{tag}]: FFI recv[static] OK"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: FFI recv[static] FAILED: {e}"),
+    }
+    if let Some(h) = echo_j {
+        let _ = h.join();
+    }
+    let echo_j2 = push_listener();
+    match ffi_recv_probe(true) {
+        Ok(()) => eprintln!("confium-winsock[{tag}]: FFI recv[GetProcAddress] OK"),
+        Err(e) => eprintln!("confium-winsock[{tag}]: FFI recv[GetProcAddress] FAILED: {e}"),
+    }
+    if let Some(h) = echo_j2 {
+        let _ = h.join();
+    }
 }
 
-/// FFI socket + connect + setsockopt(SOL_SOCKET, SO_RCVTIMEO, ms) +
-/// send + (short) recv — the exact call sequence the noise transport
-/// and coordinator client use, via raw winsock.
-#[cfg(windows)]
 fn ffi_rcvtimeo_probe(port: u16) -> Result<(), String> {
     const AF_INET: i32 = 2;
     const SOL_SOCKET: i32 = 0xffff;
@@ -507,6 +534,89 @@ fn drain_accepted(listener: usize) {
         unsafe { closesocket(acc) };
     }
     unsafe { closesocket(listener) };
+}
+
+
+/// A listener whose peer sends one byte on accept and closes — no
+/// server-side recv, so a client-side recv probe is uncontaminated.
+#[cfg(windows)]
+fn push_listener() -> Option<std::thread::JoinHandle<()>> {
+    let (ls, port) = raw_listener()?;
+    PUSH_PORT.with(|p| p.set(port));
+    Some(std::thread::spawn(move || {
+        const INVALID: usize = usize::MAX;
+        let mut pa = [0u8; 16];
+        let mut palen: i32 = 16;
+        // SAFETY: plain winsock calls.
+        let acc = unsafe { accept(ls, pa.as_mut_ptr(), &mut palen) };
+        if acc != INVALID {
+            let one = b"x";
+            unsafe { send(acc, one.as_ptr(), 1, 0) };
+            unsafe { closesocket(acc) };
+        }
+        unsafe { closesocket(ls) };
+    }))
+}
+
+/// Probe (j): connect to a push server, then recv one byte — either
+/// through the statically-linked `recv` or through ws2_32's, resolved
+/// at runtime via GetProcAddress.
+#[cfg(windows)]
+fn ffi_recv_probe(dynamic: bool) -> Result<(), String> {
+    const AF_INET: i32 = 2;
+    const INVALID: usize = usize::MAX;
+    type RecvFn = unsafe extern "system" fn(usize, *mut u8, i32, i32) -> i32;
+
+    let recv_fn: RecvFn = if dynamic {
+        // SAFETY: GetModuleHandleA/GetProcAddress on a system DLL.
+        let ws2 = unsafe { GetModuleHandleA(b"ws2_32.dll\0".as_ptr()) };
+        if ws2.is_null() {
+            return Err("GetModuleHandleA(ws2_32) null".into());
+        }
+        let sym = unsafe { GetProcAddress(ws2, b"recv\0".as_ptr()) };
+        if sym.is_null() {
+            return Err("GetProcAddress(recv) null".into());
+        }
+        // SAFETY: the symbol is ws2_32's recv with the winsock ABI.
+        unsafe { std::mem::transmute::<*mut core::ffi::c_void, RecvFn>(sym) }
+    } else {
+        // SAFETY: the statically-linked recv declaration.
+        unsafe { std::mem::transmute::<unsafe extern "C" fn(usize, *mut u8, i32, i32) -> i32, RecvFn>(recv) }
+    };
+
+    let port = PUSH_PORT.with(|p| p.get());
+    if port == 0 {
+        return Err("no push listener port".into());
+    }
+
+    // SAFETY: plain winsock calls below.
+    let s = unsafe { socket(AF_INET, 1, 6) };
+    if s == INVALID {
+        return Err(format!("create {}", unsafe { WSAGetLastError() }));
+    }
+    let mut peer = [0u8; 16];
+    peer[0..2].copy_from_slice(&(AF_INET as u16).to_ne_bytes());
+    peer[2..4].copy_from_slice(&port.to_be_bytes());
+    peer[4..8].copy_from_slice(&[127, 0, 0, 1]);
+    if unsafe { connect(s, peer.as_ptr(), 16) } != 0 {
+        let err = unsafe { WSAGetLastError() };
+        unsafe { closesocket(s) };
+        return Err(format!("connect wsagetlasterror={err}"));
+    }
+    let mut buf = [0u8; 1];
+    let n = unsafe { recv_fn(s, buf.as_mut_ptr(), 1, 0) };
+    let err = if n < 0 { unsafe { WSAGetLastError() } } else { 0 };
+    unsafe { closesocket(s) };
+    if n < 0 {
+        Err(format!("recv wsagetlasterror={err}"))
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+thread_local! {
+    static PUSH_PORT: std::cell::Cell<u16> = const { std::cell::Cell::new(0) };
 }
 
 /// No-op on non-Windows targets (the Ruby method exists everywhere so
