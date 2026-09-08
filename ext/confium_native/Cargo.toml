@@ -46,19 +46,12 @@ confium-tc = "0.9"
 confium-tc-frost-p256 = "0.4"
 confium-tc-elgamal-p256 = "0.4"
 confium-tc-cmp20 = "0.9"
-confium-tc-gg18 = "0.4"
+confium-tc-gg18 = "0.9"
 
 # Per-party session protocol: the tc-core 0.4 registry line. The 0.3-era
 # in-process drivers above keep their own registry harmlessly.
-confium-tc-session = { package = "confium-tc-core", version = "0.4.7" }
-confium-tc-frost-ed25519 = "0.4.7"
-
-# Newly published shared crypto crates (confium product restructuring).
-confium-tc-core = "0.3"
-confium-crypto-vss = "0.3"
-confium-crypto-zk = "0.3"
-confium-privacy = "0.3"
-confium-observability = "0.3"
+confium-tc-session = { package = "confium-tc-core", version = "0.9" }
+confium-tc-frost-ed25519 = "0.9"
 
 # P-256 scalar/point types used by the TC surface.
 p256 = { version = "0.13", features = ["ecdsa"] }

@@ -22,8 +22,18 @@
 
 ### Changed
 
-- ext crates: `confium-tc-cmp20` 0.4 → 0.9, `confium-tc` 0.3.1 → 0.9
-  (the proved-MtA surface; the in-process driver API is unchanged).
+- ext crates: `confium-tc-cmp20` 0.4 → 0.9, `confium-tc-gg18` 0.4 →
+  0.9, `confium-tc` 0.3.1 → 0.9, and the session line
+  (`confium-tc-core` via the `confium-tc-session` rename,
+  `confium-tc-frost-ed25519`) 0.4.7 → 0.9 — one confium-tc copy in
+  the link; two copies collided on their `cfm_tc_*` FFI symbols on
+  Linux/Windows. The in-process driver and Session APIs are unchanged
+  (suite green, 343 examples).
+- Removed five unused direct deps from the 0.3 restructuring era
+  (`confium-tc-core`, `confium-crypto-vss`, `confium-crypto-zk`,
+  `confium-privacy`, `confium-observability`) — no code referenced
+  them, and `confium-crypto-vss` 0.3.0 predates the security gating
+  releases, so the shipped binaries no longer carry that code.
 
 ## [0.7.1] — 2026-09-08
 
