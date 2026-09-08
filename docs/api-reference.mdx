@@ -277,14 +277,63 @@ rescue Confium::ThresholdError => e
 end
 ```
 
-### Security caveat
+### Security model
 
 The in-process drivers wrap the upstream Rust crate's real Feldman VSS,
-Lagrange interpolation, and threshold-ECDSA combine. The MtA sub-round
-is a simplified in-clear stub (nonces are revealed). This is safe for
-one-shot signing and integration tests; production deployments require
-Paillier-based MtA, which is tracked separately under
-`confium-tc-cmp20/mta`.
+Lagrange interpolation, and threshold-ECDSA combine, running under a
+single trusted process (the coordinator sees all share blobs at combine
+time). The MtA sub-protocol is the real Paillier construction with
+GG18/GG20 Appendix A zero-knowledge proofs — exposed below — not a
+stub. True per-party signing rounds (each signer computes on its share
+without revealing it) are the `Confium::TC::Session` surface.
+
+### Confium::TC::Cmp20::Mta — the proved MtA sub-protocol
+
+The multiplicative-to-additive conversion threshold ECDSA runs between
+every signer pair: for nonce `k_i` and key share `x_j`, party `i` ends
+with `alpha` and party `j` with `beta` such that
+`alpha − beta = k_i · x_j` — neither side learns the other's secret.
+Every ciphertext carries a zero-knowledge range proof; the responder
+refuses unproven input and the initiator refuses unbound responses
+(`Confium::TC::Cmp20::MtaError` on any forgery). All integers cross
+the Ruby boundary as hex strings and messages are plain Hashes, so
+rounds can be JSON-encoded onto a transport.
+
+```ruby
+Mta = Confium::TC::Cmp20::Mta
+Q   = Mta::P256_ORDER
+
+# Per-party setup: a Paillier keypair (prime_bits >= 1024 in
+# production; N must exceed q^5) and a Strong-RSA commitment key
+# whose VERIFIER is the other party.
+keypair = Mta.generate_keypair(1536)
+ck_i    = Mta.generate_commitment_key(512)
+ck_j    = Mta.generate_commitment_key(512)
+
+# One call runs the whole proved exchange under a coordinator:
+alpha, beta = Mta.full(
+  keypair["public"], keypair["private"], ck_i, ck_j, Q, k_i_hex, x_j_hex
+)
+
+# Or drive the three passes explicitly (message-level building
+# blocks; the coordinator model applies — see the trust note below):
+msg1 = Mta.party_i_init(keypair["public"], ck_j, Q, k_i_hex)
+msg2, beta = Mta.party_j_respond(
+  keypair["public"], keypair["private"], ck_i, ck_j, Q, msg1, x_j_hex
+)
+alpha = Mta.party_i_finish(
+  keypair["public"], keypair["private"], ck_i, Q,
+  msg1["ciphertext"], msg2
+)
+```
+
+**Trust model.** The finish step decrypts the response under the
+responder's Paillier key — the shape the upstream crate implements —
+so the process calling `party_i_finish` (or `full`) holds the keypair,
+exactly like the in-process drivers above. Splitting the passes across
+machines requires the upstream per-party state machine; until then,
+treat the split rounds as message-level building blocks under a
+trusted coordinator.
 
 ## Confium::TC::Session — per-party threshold protocol sessions
 

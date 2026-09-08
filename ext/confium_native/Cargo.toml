@@ -42,10 +42,10 @@ confium-attributes = "0.3.1"
 confium-pki = "0.5.6"
 confium-store = "0.5.8"
 confium-deployment = "0.3"
-confium-tc = "0.3.1"
+confium-tc = "0.9"
 confium-tc-frost-p256 = "0.4"
 confium-tc-elgamal-p256 = "0.4"
-confium-tc-cmp20 = "0.4"
+confium-tc-cmp20 = "0.9"
 confium-tc-gg18 = "0.4"
 
 # Per-party session protocol: the tc-core 0.4 registry line. The 0.3-era
@@ -62,6 +62,10 @@ confium-observability = "0.3"
 
 # P-256 scalar/point types used by the TC surface.
 p256 = { version = "0.13", features = ["ecdsa"] }
+
+# Hex integer codecs for the MtA surface.
+num-bigint = "0.4"
+num-traits = "0.2"
 
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand_core = { version = "0.6", default-features = false, features = ["getrandom"] }

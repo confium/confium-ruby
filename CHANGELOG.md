@@ -1,6 +1,31 @@
 # Changelog
 
-## [0.7.1] — UNRELEASED (code on main; release on the owner's tag)
+## [0.7.2] — UNRELEASED (code on main; release on the owner's tag)
+
+### Added
+
+- `Confium::TC::Cmp20::Mta` — the proved MtA sub-protocol (GG18/GG20
+  §3 + Appendix A) over confium-tc-cmp20 0.9: `full` runs the complete
+  Paillier exchange returning the additive shares (`alpha − beta =
+  k_i · x_j`); `party_i_init` / `party_j_respond` / `party_i_finish`
+  expose the three proved passes as Hashes of hex integers that can be
+  JSON-encoded onto a transport. `generate_keypair` /
+  `generate_commitment_key` produce the Paillier and Strong-RSA
+  commitment material (GVL released — safe-prime search takes seconds
+  at production sizes). Forged transcripts raise
+  `Confium::TC::Cmp20::MtaError`. Coordinator trust model documented
+  (the finish step decrypts under the responder's key, matching the
+  upstream crate); cross-machine split rounds await the upstream
+  per-party state machine.
+- The api-reference's stale "MtA is an in-clear stub" caveat is
+  replaced with the real security model.
+
+### Changed
+
+- ext crates: `confium-tc-cmp20` 0.4 → 0.9, `confium-tc` 0.3.1 → 0.9
+  (the proved-MtA surface; the in-process driver API is unchanged).
+
+## [0.7.1] — 2026-09-08
 
 ### Added
 
