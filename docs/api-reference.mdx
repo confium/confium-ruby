@@ -148,6 +148,31 @@ tree.verify_consistency(old_root, new_root, old_size, new_size, proof)
 # => true | raises
 ```
 
+## Confium::Transparency::OTS — OpenTimestamps anchoring
+
+Real wire-protocol client (no stub, no silent nils — network failures
+raise `IOError`):
+
+```ruby
+# Default calendar pool
+proof = Confium::Transparency::OTS.stamp(tree.root)   # 32-byte digest
+summary = Confium::Transparency::OTS.verify(proof)
+# => { "pending" => ["https://alice.btc.calendar.opentimestamps.org"],
+#      "bitcoin" => [], "litecoin" => [], "anchored" => false }
+proof = Confium::Transparency::OTS.upgrade(proof)     # poll for confirmation
+
+# Custom pool / explicit client
+client = Confium::Transparency::OTS::Client.new(["http://my.calendar"])
+proof = client.stamp(tree.root)
+proof.to_bytes    # the raw .ots file (binary String)
+proof.digest      # the anchored digest
+```
+
+The network round trip releases the GVL, so a slow calendar never
+freezes the VM. `Ots::Proof.new(digest, bytes)` reconstructs a proof
+from stored .ots bytes; malformed proofs raise
+`Confium::Transparency::OTS::ParseError`.
+
 ## Confium::Attributes::Predicate
 
 Attribute-based threshold predicate DSL — function-call form over
