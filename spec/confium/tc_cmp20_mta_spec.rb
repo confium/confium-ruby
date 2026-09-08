@@ -93,7 +93,7 @@ RSpec.describe Confium::TC::Cmp20::Mta do
     it 'returns hex-encoded public and private halves' do
       expect(MTA_KEYPAIR['public'].keys.sort).to eq(%w[g n n_squared])
       expect(MTA_KEYPAIR['private'].keys.sort).to eq(%w[lambda mu])
-      expect(MTA_KEYPAIR['public']['n']).to match(/\A[1-9]\h+\z/)
+      expect(MTA_KEYPAIR['public']['n']).to match(/\A[1-9a-f]\h+\z/)
     end
 
     it 'bounds prime_bits' do
