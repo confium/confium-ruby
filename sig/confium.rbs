@@ -224,15 +224,31 @@ module Confium::Transparency
   module OTS
     DEFAULT_CALENDARS: Array[String]
 
-    class Receipt
-      def initialize: (bytes: String, ?block_height: Integer?) -> void
-      def to_bytes: () -> String
+    class ParseError < StandardError
     end
 
-    # Stub — calendar-server stamping is wired through the Rust
-    # extension in a future release.
-    def self.stamp: (String hash) -> untyped
-    def self.verify: (untyped receipt, String hash) -> untyped
+    class Proof
+      def initialize: (String digest, String bytes) -> void
+      def digest: () -> String
+      def to_bytes: () -> String
+      # Returns { "pending" => Array[String], "bitcoin" => Array[Integer],
+      #   "litecoin" => Array[Integer], "anchored" => bool }
+      def verify: () -> Hash[String, untyped]
+    end
+
+    class Client
+      def initialize: (Array[String] servers) -> void
+      def stamp: (String digest) -> Proof
+      def upgrade: (Proof proof) -> Proof
+    end
+
+    def self.stamp: (String hash) -> Proof
+    def self.verify: (untyped proof, ?String? digest) -> Hash[String, untyped]
+    def self.upgrade: (Proof proof) -> Proof
+
+    private
+
+    def self.default_client: () -> Client
   end
 
   module ERS

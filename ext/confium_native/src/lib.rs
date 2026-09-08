@@ -9,12 +9,14 @@ mod attributes;
 mod composite;
 mod deployment;
 mod ers;
+mod gvl;
 mod openpgp_verify;
 mod path;
 mod pki;
 mod store;
 mod tc;
 mod net;
+mod ots;
 mod tc_session;
 mod transparency;
 mod util;
@@ -66,6 +68,8 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     native.define_module_function("winsock_probe", function!(winsock_probe_fn, 1))?;
 
     transparency::init(ruby, confium)?;
+    let transparency = confium.define_module("Transparency")?;
+    ots::init(ruby, transparency)?;
     openpgp_verify::init(ruby, confium)?;
     #[cfg(feature = "pgp")]
     openpgp_verify::init_pgp(ruby, &confium)?;

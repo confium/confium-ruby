@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
-# Confium::Transparency::OTS — OpenTimestamps client interface.
+# Confium::Transparency::OTS — OpenTimestamps calendar client.
 #
-# Wraps confium-transparency::ots::Client for anchoring Merkle tree
-# roots in the Bitcoin blockchain via OTS calendar servers.
-#
-# This is a pure-Ruby stub that defines the interface. The actual
-# OTS stamping requires network access to calendar servers and
-# will be wired through the Rust extension in a future PR
-# (TODO.completion/011-ots-ers-exposure.md).
+# Real wire-protocol implementation over the native extension
+# (confium-transparency 0.8.5+): stamps POST the 32-byte digest to a
+# calendar server and parse the returned partial proof; verification
+# replays the op tree from the digest and classifies attestations.
+# Network failures raise (Confium::Transparency::OTS is backed by a
+# real HTTP client) — there is no silent nil.
 
 module Confium
   module Transparency
@@ -20,44 +19,48 @@ module Confium
         https://a.pool.eternitywall.com
       ].freeze
 
-      # An OTS receipt proving that a hash was anchored in Bitcoin
-      # at a specific block height.
-      class Receipt
-        attr_reader :bytes, :block_height
-
-        def initialize(bytes:, block_height: nil)
-          @bytes = bytes
-          @block_height = block_height
+      class << self
+        # Stamp a 32-byte digest via the default calendar pool.
+        # Returns a Proof (pending attestation — Bitcoin confirmation
+        # arrives later; poll with #upgrade).
+        #
+        # @param hash [String] 32-byte SHA-256 digest to anchor
+        # @return [Confium::Transparency::OTS::Proof]
+        # @raise [IOError, ArgumentError]
+        def stamp(hash)
+          default_client.stamp(hash)
         end
 
-        def to_bytes
-          @bytes
+        # Verify a proof: replay its op tree from the digest and
+        # classify the attestations.
+        #
+        # @param proof [Proof, String] the proof (or raw .ots bytes —
+        #   pass the digest alongside for the String form)
+        # @param digest [String, nil] required when proof is bytes
+        # @return [Hash] { pending: [uri], bitcoin: [height],
+        #   litecoin: [height], anchored: bool }
+        def verify(proof, digest = nil)
+          proof = Proof.new(digest, proof) if digest && proof.is_a?(String)
+          proof.verify
+        end
+
+        # Upgrade a pending proof (fetch a more complete one).
+        #
+        # @return [Proof]
+        def upgrade(proof)
+          default_client.upgrade(proof)
+        end
+
+        private
+
+        def default_client
+          @default_client ||= Client.new(DEFAULT_CALENDARS)
         end
       end
 
-      # Stamp a 32-byte hash via OTS calendar servers.
-      # Returns a Receipt (stub: returns nil — requires network).
-      #
-      # @param hash [String] 32-byte SHA-256 hash to anchor
-      # @return [Receipt, nil]
-      def self.stamp(_hash)
-        # Real implementation: calls the Rust OTS client which
-        # submits the hash to calendar servers and returns a
-        # merged proof. Requires network access.
-        nil
-      end
-
-      # Verify an OTS receipt against a hash.
-      # Returns true if the receipt proves the hash was anchored.
-      #
-      # @param receipt [Receipt, String] the OTS proof
-      # @param hash [String] the 32-byte hash
-      # @return [Boolean]
-      def self.verify(_receipt, _hash)
-        # Real implementation: calls the Rust OTS verifier which
-        # walks the Bitcoin blockchain proof.
-        false
-      end
+      # The native Client is defined by the extension
+      # (Confium::Transparency::OTS::Client) with #stamp / #upgrade;
+      # the Proof class carries #digest / #to_bytes / #verify.
     end
   end
 end
