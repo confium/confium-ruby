@@ -775,17 +775,18 @@ dependencies = [
 
 [[package]]
 name = "confium-transparency"
-version = "0.4.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "874cdab3dded22c22980d3a5b1f802301739368a32e9196bc645600329c07dcf"
+checksum = "b4ec484381b582f508f774babbc1bf1b4a98c6aadd43cde806952c6e416b62ca"
 dependencies = [
  "chrono",
- "data-encoding",
+ "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
- "snafu 0.8.9",
- "thiserror 1.0.69",
+ "sha2 0.11.0",
+ "subtle",
+ "thiserror 2.0.20",
+ "ureq",
 ]
 
 [[package]]

@@ -36,7 +36,7 @@ magnus = { version = "0.8", features = ["bytes"] }
 
 # Confium crates — all from crates.io so gem install works without workspace checkout.
 confium-core = "0.2"
-confium-transparency = "0.4"
+confium-transparency = { version = "0.9", features = ["calendar"] }
 confium-composite = "0.3.1"
 confium-attributes = "0.3.1"
 confium-pki = "0.5.6"
