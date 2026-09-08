@@ -232,6 +232,7 @@ pub fn init(ruby: &Ruby, parent: magnus::RModule) -> Result<(), Error> {
     let cmp20 = tc.define_module("Cmp20")?;
     cmp20.define_module_function("keygen", function!(cmp20_keygen, 2))?;
     cmp20.define_module_function("sign", function!(cmp20_sign, 3))?;
+    crate::tc_mta::init(ruby, &cmp20)?;
 
     let gg18 = tc.define_module("Gg18")?;
     gg18.define_module_function("keygen", function!(gg18_keygen, 2))?;

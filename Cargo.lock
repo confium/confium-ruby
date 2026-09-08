@@ -53,12 +53,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "allocator-api2"
-version = "0.2.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -122,18 +116,6 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
-
-[[package]]
-name = "bitvec"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddcec3d12c579d40898fe0a9a358a803c23e9c52ca3c425707f81c9436211837"
-dependencies = [
- "funty",
- "radium",
- "tap",
- "wyz",
-]
 
 [[package]]
 name = "blake2"
@@ -325,34 +307,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "confium-coordinator"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8c96d4d5997726cf0eb794410e3e8bbce839cfba9c4a32e26ede0c076b02e64"
-dependencies = [
- "chrono",
- "confium-api",
- "confium-net 0.3.0",
- "confium-store 0.3.0",
- "confium-tc-core 0.3.0",
- "data-encoding",
- "hex",
- "hmac 0.12.1",
- "inventory",
- "num-bigint",
- "num-traits",
- "p256 0.13.2",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "snafu 0.8.9",
- "thiserror 1.0.69",
- "tracing",
- "zeroize",
 ]
 
 [[package]]
@@ -579,39 +533,6 @@ dependencies = [
 
 [[package]]
 name = "confium-tc"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dd7d4965aef12324cb76d397294c317b83b774de029f1d37b387cf54ba9593c"
-dependencies = [
- "chrono",
- "confium-api",
- "confium-coordinator 0.3.0",
- "confium-net 0.3.0",
- "confium-store 0.3.0",
- "confium-tc-keys",
- "data-encoding",
- "hex",
- "hmac 0.12.1",
- "inventory",
- "num-bigint",
- "num-integer",
- "num-prime",
- "num-traits",
- "p256 0.13.2",
- "rand",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "snafu 0.8.9",
- "subtle",
- "thiserror 1.0.69",
- "tracing",
- "zeroize",
-]
-
-[[package]]
-name = "confium-tc"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940d14f99d311c76e38500126059e2f1f027628657d0615d5bc78422618c83ee"
@@ -633,20 +554,43 @@ dependencies = [
 ]
 
 [[package]]
-name = "confium-tc-cmp20"
-version = "0.4.7"
+name = "confium-tc"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58d95093a36282370c3920cc0453f080d3e567afaa340063f44b3dbe1a60bca5"
+checksum = "5117ef63b3e928dbd7250607bef640961e70090ecc82a54ebd1b69e1921b4f9a"
 dependencies = [
- "confium-tc 0.4.7",
+ "chrono",
+ "confium-tc-core 0.9.2",
+ "hmac 0.13.0",
+ "inventory",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "snafu 0.9.2",
+ "thiserror 2.0.20",
+ "zeroize",
+]
+
+[[package]]
+name = "confium-tc-cmp20"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d49e806886b274f44efb0d172600226b6696d8ac7f12124ce8e38093807bf7"
+dependencies = [
+ "confium-tc 0.9.2",
  "crypto-bigint 0.7.5",
  "elliptic-curve 0.14.1",
  "getrandom 0.4.3",
  "inventory",
  "num-bigint",
+ "num-traits",
  "p256 0.14.0",
  "rand",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "zeroize",
 ]
 
@@ -695,6 +639,28 @@ dependencies = [
  "snafu 0.8.9",
  "subtle",
  "thiserror 1.0.69",
+ "zeroize",
+]
+
+[[package]]
+name = "confium-tc-core"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c0af0c5074978ac0630447e2555abe4462732450e346b289dcc170a8a42a99b"
+dependencies = [
+ "chrono",
+ "getrandom 0.4.3",
+ "hex",
+ "hmac 0.13.0",
+ "inventory",
+ "p256 0.14.0",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "snafu 0.9.2",
+ "subtle",
+ "thiserror 2.0.20",
  "zeroize",
 ]
 
@@ -755,25 +721,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "confium-tc-keys"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "476fce2efcefa4d7a48cfe5accecd1bc3f39959b5ea719fdedac9cfcbfeeb710"
-dependencies = [
- "chrono",
- "confium-tc-core 0.3.0",
- "hex",
- "hmac 0.12.1",
- "p256 0.13.2",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "subtle",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "confium-transparency"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -796,7 +743,7 @@ dependencies = [
  "chrono",
  "confium-attributes",
  "confium-composite",
- "confium-coordinator 0.8.5",
+ "confium-coordinator",
  "confium-core",
  "confium-crypto-vss",
  "confium-crypto-zk",
@@ -807,7 +754,7 @@ dependencies = [
  "confium-pki",
  "confium-privacy",
  "confium-store 0.5.8",
- "confium-tc 0.3.1",
+ "confium-tc 0.9.2",
  "confium-tc-cmp20",
  "confium-tc-core 0.3.0",
  "confium-tc-core 0.4.7",
@@ -819,6 +766,8 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "magnus",
+ "num-bigint",
+ "num-traits",
  "p256 0.13.2",
  "rand_core 0.6.4",
  "rb-sys",
@@ -1245,12 +1194,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "foldhash"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
-
-[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1258,12 +1201,6 @@ checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
 ]
-
-[[package]]
-name = "funty"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "futures-core"
@@ -1371,17 +1308,6 @@ dependencies = [
  "ff 0.14.0",
  "rand_core 0.10.1",
  "subtle",
-]
-
-[[package]]
-name = "hashbrown"
-version = "0.15.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
-dependencies = [
- "allocator-api2",
- "equivalent",
- "foldhash",
 ]
 
 [[package]]
@@ -1581,7 +1507,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
- "hashbrown 0.17.1",
+ "hashbrown",
 ]
 
 [[package]]
@@ -1669,15 +1595,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
-name = "lru"
-version = "0.12.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
-dependencies = [
- "hashbrown 0.15.5",
-]
-
-[[package]]
 name = "lzma-rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1761,33 +1678,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
 dependencies = [
  "num-traits",
-]
-
-[[package]]
-name = "num-modular"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64a5fe11d4135c3bcdf3a95b18b194afa9608a5f6ff034f5d857bc9a27fb0119"
-dependencies = [
- "num-bigint",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
-name = "num-prime"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e238432a7881ec7164503ccc516c014bf009be7984cde1ba56837862543bdec3"
-dependencies = [
- "bitvec",
- "either",
- "lru",
- "num-bigint",
- "num-integer",
- "num-modular",
- "num-traits",
- "rand",
 ]
 
 [[package]]
@@ -2009,12 +1899,6 @@ name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
-
-[[package]]
-name = "radium"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "rand"
@@ -2556,12 +2440,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tap"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
-
-[[package]]
 name = "tar"
 version = "0.4.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3043,15 +2921,6 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
-
-[[package]]
-name = "wyz"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
-dependencies = [
- "tap",
-]
 
 [[package]]
 name = "x25519-dalek"
