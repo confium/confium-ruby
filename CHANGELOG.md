@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.7.1] — UNRELEASED (code on main; release on the owner's tag)
+
+### Added
+
+- `Confium::Transparency::OTS` is now the real OpenTimestamps
+  wire-protocol binding (confium-transparency 0.9): `OTS::Client#stamp`
+  POSTs the 32-byte digest to the calendar pool and returns a `Proof`
+  carrying the parsed partial proof; `#upgrade` polls for a confirmed
+  one; `Proof#verify` replays the op tree and classifies attestations
+  (pending URIs, Bitcoin/Litecoin heights, `anchored`). Module-level
+  `OTS.stamp`/`verify`/`upgrade` over the default calendar pool.
+  Network failures raise (`IOError`/`ParseError`) — the stub-era
+  silent nil is gone.
+- The calendar round trip releases the GVL (direct
+  `rb_thread_call_without_gvl` trampoline — magnus 0.8 does not wrap
+  it), so a slow calendar never freezes the VM.
+
+### Fixed
+
+- The workspace's OTS file magic was missing its final two salt bytes
+  (29 vs 31; shifted every parse offset for real .ots files) — caught
+  by this binding's cross-checked specs, fixed in confium-transparency
+  v0.9.1.
+
 ## [0.7.0] — 2026-09-07
 
 ### Added

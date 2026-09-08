@@ -103,7 +103,7 @@ end
 === `Confium::Transparency`
 - `MerkleTree.new` / `#append(artifact_hash)` / `#root` / `#length` / `#empty?` / `#inclusion_proof(seq)`
 - `InclusionProof#sequence` / `#steps` / `#verify(root)`
-- `Ots.stamp(hash)` / `Ots.verify(receipt, hash)` — OpenTimestamps anchoring interface (pure-Ruby stub; calendar-server wiring lands with the Rust client)
+- `Ots.stamp(hash)` / `Ots.verify(proof)` / `Ots.upgrade(proof)` — real OpenTimestamps anchoring over the wire protocol (calendar HTTP, servers tried in order; the network round trip releases the GVL). `Ots::Client.new(servers)` for a custom pool; `Ots::Proof#verify` replays the op tree and classifies attestations. Network failures raise — there is no silent nil
 
 === `Confium::Composite` — PQ migration
 - `.generate_ed25519_keypair` → `{ private_key:, public_key: }`
