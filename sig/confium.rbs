@@ -469,7 +469,7 @@ module Confium::TC
       def self.generate_keypair: (Integer prime_bits) -> Hash[String, Hash[String, String]]
       def self.generate_commitment_key: (Integer prime_bits) -> Hash[String, String]
       def self.party_i_init: (Hash[String, String] j_public, Hash[String, String] ck_j, String q_hex, String k_i_hex) -> Hash[String, untyped]
-      def self.party_j_respond: (Hash[String, String] j_public, Hash[String, String] j_private, Hash[String, String] ck_i, Hash[String, String] ck_j, String q_hex, Hash[String, untyped] msg1, String x_j_hex) -> [ Hash[String, untyped], String ]
+      def self.party_j_respond: (Hash[String, String] i_public, Hash[String, String] ck_i, Hash[String, String] ck_j, String q_hex, Hash[String, untyped] msg1, String x_j_hex) -> [ Hash[String, untyped], String ]
       def self.party_i_finish: (Hash[String, String] j_public, Hash[String, String] j_private, Hash[String, String] ck_i, String q_hex, String msg1_ciphertext_hex, Hash[String, untyped] msg2) -> String
       def self.full: (Hash[String, String] j_public, Hash[String, String] j_private, Hash[String, String] ck_i, Hash[String, String] ck_j, String q_hex, String k_i_hex, String x_j_hex) -> [ String, String ]
     end

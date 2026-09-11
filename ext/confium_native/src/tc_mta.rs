@@ -7,13 +7,15 @@
 //! expose the three passes with messages as plain Hashes of hex
 //! integers so rounds can be JSON-encoded onto a transport.
 //!
-//! Trust model: coordinator. The finish step decrypts the response
-//! under the RESPONDER's Paillier key — that is the shape the upstream
-//! crate implements — so the process calling `party_i_finish` (or
-//! `full`) must hold the keypair, exactly like the in-process signing
-//! drivers. Splitting the passes across machines needs the upstream
-//! per-party state machine; until it exists, these are message-level
-//! building blocks under a trusted coordinator.
+//! Key direction: the exchange runs under the INITIATOR's Paillier
+//! key. Party i encrypts k_i under its own public key, party j
+//! responds using ONLY public material (it can never open the
+//! initiator's ciphertext), and only party i can decrypt the response
+//! — so the split rounds are sound across processes: alpha stays with
+//! the initiator, beta-prime with the responder, and neither share
+//! holder can recover the other's secret. `full` is the in-process
+//! convenience for a coordinator that legitimately holds the
+//! initiator's keypair.
 
 use confium_tc::paillier::{
     generate_keypair as generate_paillier_keypair, PaillierKeypair, PaillierPrivateKey,
@@ -241,12 +243,12 @@ fn mta_generate_commitment_key(ruby: &Ruby, prime_bits: i64) -> Result<RHash, Er
 
 fn mta_party_i_init(
     ruby: &Ruby,
-    j_public: RHash,
+    i_public: RHash,
     ck_j: RHash,
     q: String,
     k_i: String,
 ) -> Result<RHash, Error> {
-    let public = public_from_hash(&j_public)?;
+    let public = public_from_hash(&i_public)?;
     let ck = commitment_key_from_hash(&ck_j)?;
     let q = parse_hex(&q, "q")?;
     let k_i = parse_hex(&k_i, "k_i")?;
@@ -257,33 +259,24 @@ fn mta_party_i_init(
 
 fn mta_party_j_respond(
     ruby: &Ruby,
-    j_public: RHash,
-    j_private: RHash,
+    i_public: RHash,
     ck_i: RHash,
     ck_j: RHash,
     q: String,
     msg1: RHash,
     x_j: String,
 ) -> Result<magnus::RArray, Error> {
-    let public = public_from_hash(&j_public)?;
-    let private = private_from_hash(&j_private)?;
+    // Only the initiator's PUBLIC material: the responder can never
+    // open the ciphertext it operates on.
+    let public = public_from_hash(&i_public)?;
     let ck_i = commitment_key_from_hash(&ck_i)?;
     let ck_j = commitment_key_from_hash(&ck_j)?;
     let q = parse_hex(&q, "q")?;
     let msg1 = msg1_from_hash(&msg1)?;
     let x_j = parse_hex(&x_j, "x_j")?;
-    let (msg2, beta) = party_j_respond_proved(
-        &PaillierKeypair {
-            public,
-            private,
-        },
-        &ck_i,
-        &ck_j,
-        &q,
-        &msg1,
-        &x_j,
-    )
-    .map_err(|e| mta_error(ruby, "tc_cmp20_mta_respond", e))?;
+    let (msg2, beta) =
+        party_j_respond_proved(&public, &ck_i, &ck_j, &q, &msg1, &x_j)
+            .map_err(|e| mta_error(ruby, "tc_cmp20_mta_respond", e))?;
     crate::audit::fire_event("tc_cmp20_mta_respond", "success", Some(ALGORITHM), None, None);
     let out = ruby.ary_new_capa(2);
     out.push(msg2_to_hash(ruby, &msg2)?)?;
@@ -293,15 +286,15 @@ fn mta_party_j_respond(
 
 fn mta_party_i_finish(
     ruby: &Ruby,
-    j_public: RHash,
-    j_private: RHash,
+    i_public: RHash,
+    i_private: RHash,
     ck_i: RHash,
     q: String,
     msg1_ciphertext: String,
     msg2: RHash,
 ) -> Result<RString, Error> {
-    let public = public_from_hash(&j_public)?;
-    let private = private_from_hash(&j_private)?;
+    let public = public_from_hash(&i_public)?;
+    let private = private_from_hash(&i_private)?;
     let ck_i = commitment_key_from_hash(&ck_i)?;
     let q = parse_hex(&q, "q")?;
     let ciphertext = parse_hex(&msg1_ciphertext, "message 1 ciphertext")?;
@@ -314,16 +307,16 @@ fn mta_party_i_finish(
 
 fn mta_full(
     ruby: &Ruby,
-    j_public: RHash,
-    j_private: RHash,
+    i_public: RHash,
+    i_private: RHash,
     ck_i: RHash,
     ck_j: RHash,
     q: String,
     k_i: String,
     x_j: String,
 ) -> Result<magnus::RArray, Error> {
-    let public = public_from_hash(&j_public)?;
-    let private = private_from_hash(&j_private)?;
+    let public = public_from_hash(&i_public)?;
+    let private = private_from_hash(&i_private)?;
     let ck_i = commitment_key_from_hash(&ck_i)?;
     let ck_j = commitment_key_from_hash(&ck_j)?;
     let q = parse_hex(&q, "q")?;
@@ -361,7 +354,7 @@ pub fn init(ruby: &Ruby, cmp20: &magnus::RModule) -> Result<(), Error> {
         magnus::function!(mta_generate_commitment_key, 1),
     )?;
     mta.define_module_function("party_i_init", magnus::function!(mta_party_i_init, 4))?;
-    mta.define_module_function("party_j_respond", magnus::function!(mta_party_j_respond, 7))?;
+    mta.define_module_function("party_j_respond", magnus::function!(mta_party_j_respond, 6))?;
     mta.define_module_function("party_i_finish", magnus::function!(mta_party_i_finish, 6))?;
     mta.define_module_function("full", magnus::function!(mta_full, 7))?;
     Ok(())

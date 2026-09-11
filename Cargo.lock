@@ -113,9 +113,9 @@ dependencies = [
 
 [[package]]
 name = "bitflags"
-version = "2.13.1"
+version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
 name = "blake2"
@@ -368,9 +368,9 @@ dependencies = [
 
 [[package]]
 name = "confium-net-tcp"
-version = "0.8.3"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b80e3d692ed5328a72e754a0f73d81f6c8fde3714d05fc0be1953f657e05f76"
+checksum = "6f9dc8ede26a41714ca0d787592395face7551886cc229a8b97f30c34b903b2e"
 dependencies = [
  "confium-net",
  "inventory",
@@ -406,9 +406,9 @@ dependencies = [
 
 [[package]]
 name = "confium-tc"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5117ef63b3e928dbd7250607bef640961e70090ecc82a54ebd1b69e1921b4f9a"
+checksum = "da7534230988cb45831c6125baa93b122e71b3d9d61b414927068dfe62842bc3"
 dependencies = [
  "chrono",
  "confium-tc-core",
@@ -428,9 +428,9 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-cmp20"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d49e806886b274f44efb0d172600226b6696d8ac7f12124ce8e38093807bf7"
+checksum = "a87ceca32c969982e86304f6c820b1db60d88d668025d86b13f95c4a013e6b7b"
 dependencies = [
  "confium-tc",
  "crypto-bigint 0.7.5",
@@ -447,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-core"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c0af0c5074978ac0630447e2555abe4462732450e346b289dcc170a8a42a99b"
+checksum = "86a3b3bda8a1453b8b5d02d13e88636dbcf8caa36671327a0ebce6514b97363f"
 dependencies = [
  "chrono",
  "getrandom 0.4.3",
@@ -482,9 +482,9 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-frost-ed25519"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5c04b1a94c923f0d157963feb5fa0df17808c753f0505e4ca21195b33857772"
+checksum = "105b6f9d91b532fa118a18c6e2904684d46944db93cb79d2c3be8b13e0b2a680"
 dependencies = [
  "confium-tc",
  "curve25519-dalek 5.0.0",
@@ -509,9 +509,9 @@ dependencies = [
 
 [[package]]
 name = "confium-tc-gg18"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8de0dcac83c500c5bb9f6c3b7203c6c6afa340f46df4b781f3841683b4fdf3b7"
+checksum = "9c7a07f0bac8cffd60dfedd3f786f75c25aad0c9315ac1f6cdfb60ecdcb025e6"
 dependencies = [
  "confium-tc",
  "crypto-bigint 0.7.5",
@@ -1185,9 +1185,9 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "hybrid-array"
-version = "0.4.14"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "707114b52a152fa7bdb290cd7cd5912d9467273b6d74e21b8d81aca1f8533f6b"
+checksum = "27f864f10dfb56725ce5ce5472bc52252c8f93a4ab86327122cebf62c5f59a17"
 dependencies = [
  "subtle",
  "typenum",
@@ -1853,9 +1853,9 @@ dependencies = [
 
 [[package]]
 name = "rnp-rs"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44ed4ce48fca01b9d8846dd681d555c8df626b43b83b916146108b7d2eca8ae2"
+checksum = "f3df383e603a1e920409e1c7fae0a80b829a7b51151ba7854cfb58415f8c9e04"
 dependencies = [
  "rnp-sys",
  "snafu 0.9.2",
@@ -1863,9 +1863,9 @@ dependencies = [
 
 [[package]]
 name = "rnp-src"
-version = "0.2.5"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72836ffd359235b998ae4062ddf1108e28fb10e18a2f69a000320eaab5fa2a25"
+checksum = "c4e6f4474772f8f4bfed1d6ba1a465bc524442206fe012257bfdcf8f6e0ab935"
 dependencies = [
  "botan-src",
  "flate2",
@@ -1875,9 +1875,9 @@ dependencies = [
 
 [[package]]
 name = "rnp-sys"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42c118890f1f70738d30bce4c29edd29156a2c999e53eb4939700ac114a38878"
+checksum = "9ec6224a4e26bf2f71bca848f485aeefbd6bdb1721b6c83e5cb70980563ec982"
 dependencies = [
  "bindgen",
  "pkg-config",
@@ -2141,9 +2141,9 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "smallvec"
-version = "1.16.0"
+version = "1.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9be42f50aa861c555654aa3a37f52f4b1074bacf4e48fe0ef7fa584e80f1f0f"
+checksum = "ba467056f1b547ed52077911161fc86985becbc60e8e1857c8a144dab0def891"
 
 [[package]]
 name = "snafu"
@@ -2814,18 +2814,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.56"
+version = "0.8.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "556764e583adb45a9f8d413c2a147fa7e8d821e48e12b14fd560b607998b75eb"
+checksum = "d35102a9f36d089ccae9e4c6802bc118be4487b80aaffc0ab4e0cf5ce92d2873"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.56"
+version = "0.8.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ab42fc20575779bd240faa45f94a74256f755c0fa9e89f0ede20d91d0cdfc1"
+checksum = "146c01f5ab44258da43cf276c74a2763db2ff3969c9c652c3f2de07041d0b2bc"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -1,6 +1,25 @@
 # Changelog
 
-## [0.7.2] — UNRELEASED (code on main; release on the owner's tag)
+## [0.8.0] — UNRELEASED (code on main; release on the owner's tag)
+
+### Changed
+
+- **BREAKING**: `Confium::TC::Cmp20::Mta` follows the upstream
+  key-direction inversion (confium-tc-cmp20 0.10): the proved MtA
+  exchange now runs under the INITIATOR's Paillier key end to end.
+  `party_j_respond` drops its private-key argument — the responder
+  needs only the initiator's public material (it can never open the
+  ciphertext it operates on) — and `party_i_init` / `party_i_finish` /
+  `full` take the initiator's key. The split rounds are therefore
+  sound across processes: `alpha` stays with the initiator, `beta`
+  with the responder, and neither share holder can recover the
+  peer's secret (whoever holds both recovers it exactly). The
+  api-reference trust note is replaced by the key-direction
+  explanation; new spec: the responder side needs no private
+  material.
+- ext crates: `confium-tc` / `confium-tc-cmp20` 0.9 → 0.10.
+
+## [0.7.2] — 2026-09-10
 
 ### Added
 
