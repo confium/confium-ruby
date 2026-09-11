@@ -315,11 +315,11 @@ alpha, beta = Mta.full(
   keypair["public"], keypair["private"], ck_i, ck_j, Q, k_i_hex, x_j_hex
 )
 
-# Or drive the three passes explicitly (message-level building
-# blocks; the coordinator model applies — see the trust note below):
+# Or drive the three passes explicitly — sound across processes:
+# the responder never needs private material.
 msg1 = Mta.party_i_init(keypair["public"], ck_j, Q, k_i_hex)
 msg2, beta = Mta.party_j_respond(
-  keypair["public"], keypair["private"], ck_i, ck_j, Q, msg1, x_j_hex
+  keypair["public"], ck_i, ck_j, Q, msg1, x_j_hex
 )
 alpha = Mta.party_i_finish(
   keypair["public"], keypair["private"], ck_i, Q,
@@ -327,13 +327,16 @@ alpha = Mta.party_i_finish(
 )
 ```
 
-**Trust model.** The finish step decrypts the response under the
-responder's Paillier key — the shape the upstream crate implements —
-so the process calling `party_i_finish` (or `full`) holds the keypair,
-exactly like the in-process drivers above. Splitting the passes across
-machines requires the upstream per-party state machine; until then,
-treat the split rounds as message-level building blocks under a
-trusted coordinator.
+**Key direction.** The exchange runs under the initiator's Paillier
+key end to end: party `i` encrypts `k_i` under its own public key,
+party `j` responds using only public material (it can never open the
+initiator's ciphertext), and only party `i` can decrypt the response.
+The share contract forces this — `alpha − beta = k_i·x_j` exactly, so
+whoever holds both recovers the peer's secret — so running the three
+passes in separate processes is sound: `alpha` stays with the
+initiator, `beta` with the responder. `full` is the in-process
+convenience for a coordinator that legitimately holds the initiator's
+keypair.
 
 ## Confium::TC::Session — per-party threshold protocol sessions
 

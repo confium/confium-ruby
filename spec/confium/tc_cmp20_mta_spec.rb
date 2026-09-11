@@ -5,7 +5,8 @@ require 'spec_helper'
 # 642-bit primes give N > q^5 + q^2 (~2^1282): the minimum for an
 # honest run where shares never wrap mod N (see spec 70-cmp20).
 # Safe-prime search takes seconds — one keypair shared across the
-# suite, mirroring the upstream crate's test fixtures.
+# suite, mirroring the upstream crate's test fixtures. The keypair
+# plays the INITIATOR: the exchange runs under its key end to end.
 MTA_KEYPAIR = Confium::TC::Cmp20::Mta.generate_keypair(642).freeze
 MTA_CK_I = Confium::TC::Cmp20::Mta.generate_commitment_key(64).freeze
 MTA_CK_J = Confium::TC::Cmp20::Mta.generate_commitment_key(64).freeze
@@ -21,7 +22,7 @@ RSpec.describe Confium::TC::Cmp20::Mta do
   def run_split(k_hex = MTA_K_I)
     msg1 = described_class.party_i_init(MTA_KEYPAIR['public'], MTA_CK_J, MTA_Q, k_hex)
     msg2, beta = described_class.party_j_respond(
-      MTA_KEYPAIR['public'], MTA_KEYPAIR['private'], MTA_CK_I, MTA_CK_J, MTA_Q, msg1, MTA_X_J
+      MTA_KEYPAIR['public'], MTA_CK_I, MTA_CK_J, MTA_Q, msg1, MTA_X_J
     )
     alpha = described_class.party_i_finish(
       MTA_KEYPAIR['public'], MTA_KEYPAIR['private'], MTA_CK_I, MTA_Q, msg1['ciphertext'], msg2
@@ -64,6 +65,18 @@ RSpec.describe Confium::TC::Cmp20::Mta do
     end
   end
 
+  describe 'the responder side' do
+    it 'needs no private material — the exchange runs under the initiator key' do
+      msg1 = described_class.party_i_init(MTA_KEYPAIR['public'], MTA_CK_J, MTA_Q, MTA_K_I)
+      # Public halves only: party j operates on ciphertext it can never open.
+      expect do
+        described_class.party_j_respond(
+          MTA_KEYPAIR['public'], MTA_CK_I, MTA_CK_J, MTA_Q, msg1, MTA_X_J
+        )
+      end.not_to raise_error
+    end
+  end
+
   describe 'forgery rejection' do
     it 'rejects a tampered response ciphertext' do
       _, _, msg1, msg2 = run_split
@@ -79,7 +92,7 @@ RSpec.describe Confium::TC::Cmp20::Mta do
       _, _, msg1, = run_split
       other = described_class.party_i_init(MTA_KEYPAIR['public'], MTA_CK_J, MTA_Q, '7')
       msg2, = described_class.party_j_respond(
-        MTA_KEYPAIR['public'], MTA_KEYPAIR['private'], MTA_CK_I, MTA_CK_J, MTA_Q, msg1, MTA_X_J
+        MTA_KEYPAIR['public'], MTA_CK_I, MTA_CK_J, MTA_Q, msg1, MTA_X_J
       )
       expect do
         described_class.party_i_finish(
